@@ -7,6 +7,10 @@ global inherited sharing class DataAccessorTestFactory {
     private static Map<Schema.SObjectType, Integer> recordIdCounter = new Map<Schema.SObjectType, Integer>();
 
     private static void setId(SObject record) {
+        record.Id = getFauxId(record);
+    }
+
+    global static String getFauxId(SObject record) {
         Schema.SObjectType sot = record.getSObjectType();
         recordIdCounter.put(sot, (recordIdCounter.get(sot) ?? -1) + 1);
         String pos = recordIdCounter.get(sot).toString();
@@ -19,16 +23,46 @@ global inherited sharing class DataAccessorTestFactory {
                 pos.length() < 12 ? '0'.repeat(12 - pos.length()) : ''
             }
         );
-        record.Id = fauxId;
+
+        return fauxId;
     }
 
     global static DataAccessorTestFactory.Accessor init(
         Schema.SObjectType sobjectType
     ) {
-        return new Accessor(sobjectType);
+        return init(sobjectType, null);
+    }
+
+    global static DataAccessorTestFactory.Accessor init(
+        Schema.SObjectType sobjectType,
+        DataWriter writer
+    ) {
+        writer = writer ?? new Writer(sobjectType);
+
+        return new Accessor(sobjectType, writer);
     }
 
     global class Accessor implements DataAccessor {
+        private Schema.SObjectType sobjectType;
+        private DataReader reader;
+        private DataWriter writer;
+
+        private Accessor(Schema.SObjectType sobjectType, DataWriter writer) {
+            this.sobjectType = sobjectType;
+            this.writer = writer;
+            this.reader = new Reader(sobjectType);
+        }
+
+        global DataReader getReader() {
+            return this.reader;
+        }
+
+        global DataWriter getWriter() {
+            return this.writer;
+        }
+    }
+
+    global class Reader implements DataReader {
         private List<SObject> records = new List<SObject>();
         private Schema.SObjectType sobjectType;
         private String sobjectTypeString;
@@ -36,13 +70,13 @@ global inherited sharing class DataAccessorTestFactory {
         // more performant than round-trip serialization / deserialization
         private Map<Integer, ChildRecords> childMap = new Map<Integer, ChildRecords>();
         /** @constructor */
-        private Accessor(Schema.SObjectType sobjectType) {
+        private Reader(Schema.SObjectType sobjectType) {
             this.sobjectType = sobjectType;
             this.sobjectTypeString = sobjectType.getDescribe().getName();
             this.children = sobjectType.getDescribe().getChildRelationships();
         }
 
-        global Schema.SObjectType readsType() {
+        global Schema.SObjectType handlesType() {
             return this.sobjectType;
         }
 
@@ -50,7 +84,7 @@ global inherited sharing class DataAccessorTestFactory {
             return this.records;
         }
 
-        global Accessor addRoot(SObject record) {
+        global Reader addRoot(SObject record) {
             setId(record);
             Schema.SObjectType recordSObjectType = record.getSObjectType();
             if (recordSObjectType != this.sobjectType) {
@@ -70,14 +104,11 @@ global inherited sharing class DataAccessorTestFactory {
             return this;
         }
 
-        global Accessor relateParent(
-            SObject parent,
-            Schema.SObjectField field
-        ) {
+        global Reader relateParent(SObject parent, Schema.SObjectField field) {
             return relateParent(parent, field, this.records.size() - 1);
         }
 
-        global Accessor relateParent(
+        global Reader relateParent(
             SObject parent,
             Schema.SObjectField field,
             Integer rootRecordPosition
@@ -91,11 +122,11 @@ global inherited sharing class DataAccessorTestFactory {
             return this;
         }
 
-        global Accessor relateChild(SObject child) {
+        global Reader relateChild(SObject child) {
             return relateChild(child, this.records.size() - 1);
         }
 
-        global Accessor relateChild(SObject child, Integer rootRecordPosition) {
+        global Reader relateChild(SObject child, Integer rootRecordPosition) {
             setId(child);
             Schema.SObjectType childType = child.getSObjectType();
             String relationshipName;
@@ -147,6 +178,47 @@ global inherited sharing class DataAccessorTestFactory {
         }
     }
 
+    global class Writer extends DataWriterBase {
+        private Writer(Schema.SObjectType sobjectType) {
+            super(sobjectType);
+        }
+
+        global override List<Database.SaveResult> insertRecords(
+            List<SObject> records
+        ) {
+            // do nothing
+            return null;
+        }
+
+        global override List<Database.SaveResult> updateRecords(
+            List<SObject> records
+        ) {
+            // do nothing
+            return null;
+        }
+
+        global override List<Database.UpsertResult> upsertRecords(
+            List<SObject> records
+        ) {
+            // do nothing
+            return null;
+        }
+
+        global override List<Database.DeleteResult> deleteRecords(
+            List<SObject> records
+        ) {
+            // do nothing
+            return null;
+        }
+
+        global override List<Database.UndeleteResult> undeleteRecords(
+            List<SObject> records
+        ) {
+            // do nothing
+            return null;
+        }
+    }
+
     private class ChildRecords {
         public Integer totalSize = 0;
         public Boolean done = true;
@@ -165,22 +237,37 @@ global inherited sharing class DataAccessorTestFactory {
     }
 
     @isTest
-    private static void testThyself() {
+    private static void validateReadOperations() {
         String ACCOUNT_NAME = 'TestAccount';
         String CASE_SUBJECT = 'Test Case';
         Accessor accessor = init(Schema.Contact.getSObjectType());
-        accessor.addRoot(new Contact(LastName = 'Goodtest'));
-        accessor.relateChild(new Case(Subject = CASE_SUBJECT));
-        accessor.relateChild(new Case(Subject = CASE_SUBJECT));
-        accessor.relateParent(
+        Reader reader = (Reader) accessor.getReader();
+        reader.addRoot(new Contact(LastName = 'Goodtest'));
+        reader.relateChild(new Case(Subject = CASE_SUBJECT));
+        reader.relateChild(new Case(Subject = CASE_SUBJECT));
+        reader.relateParent(
             new Account(Name = ACCOUNT_NAME),
             Schema.Contact.AccountId
         );
         // ensure casting and references work as expected
-        Contact c = (Contact) accessor.read()[0];
+        Contact c = (Contact) reader.read()[0];
         System.debug('\n' + JSON.serializePretty(c));
         Assert.areEqual(ACCOUNT_NAME, c.Account.Name);
         Assert.areEqual(2, c.Cases.size());
         Assert.areEqual(CASE_SUBJECT, c.Cases.get(0).Subject);
+    }
+
+    @isTest
+    private static void validateDataWriterBase() {
+        // init empty list for line coverage
+        List<Account> records = new List<Account>();
+        Schema.SObjectType actType = Schema.Account.getSObjectType();
+        DataWriterBase writer = new DataWriterBase(actType);
+        Assert.areEqual(actType, writer.handlesType());
+        writer.insertRecords(records);
+        writer.upsertRecords(records);
+        writer.updateRecords(records);
+        writer.deleteRecords(records);
+        writer.undeleteRecords(records);
     }
 }

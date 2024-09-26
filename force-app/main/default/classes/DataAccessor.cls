@@ -1,8 +1,8 @@
 /**
- * @description A simple interface whose sole job is reading records of a single (root) SObectType from the database.
- * Makes dependency injection and mocking easy so that unit tests can minimize database calls and overhead.
+ * @description An interface whose jobe is accessing data of a given SObjectType. Composes DataReader and DataWriter
+ * functionality for simplified usage.
  */
 global interface DataAccessor {
-    Schema.SObjectType readsType();
-    List<SObject> read();
+    DataReader getReader();
+    DataWriter getWriter();
 }
