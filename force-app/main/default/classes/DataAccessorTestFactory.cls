@@ -345,6 +345,11 @@ global inherited sharing class DataAccessorTestFactory {
         }
     }
 
+    @isTest
+    private static void coverDataInterfaces() {
+        new DataInterfaces();
+    }
+
     private static Account getTestAccount() {
         return new Account(Name = 'TestAccount');
     }

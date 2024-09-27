@@ -2,6 +2,11 @@
  * @description Provides a pseudo-namespaced collection of the data interfaces in the library.
  */
 global inherited sharing class DataInterfaces {
+    @testVisible
+    /**
+     * @description TestVisible as constructor requires coverage
+     * @constructor
+     */
     private DataInterfaces() {
     }
     /**
