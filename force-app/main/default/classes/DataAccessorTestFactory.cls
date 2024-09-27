@@ -35,34 +35,34 @@ global inherited sharing class DataAccessorTestFactory {
 
     global static DataAccessorTestFactory.Accessor init(
         Schema.SObjectType sobjectType,
-        DataWriter writer
+        Writer writer
     ) {
         writer = writer ?? new Writer(sobjectType);
 
         return new Accessor(sobjectType, writer);
     }
 
-    global class Accessor implements DataAccessor {
+    global class Accessor implements DataInterfaces.Accessor {
         private Schema.SObjectType sobjectType;
-        private DataReader reader;
-        private DataWriter writer;
+        private Reader reader;
+        private Writer writer;
 
-        private Accessor(Schema.SObjectType sobjectType, DataWriter writer) {
+        private Accessor(Schema.SObjectType sobjectType, Writer writer) {
             this.sobjectType = sobjectType;
             this.writer = writer;
             this.reader = new Reader(sobjectType);
         }
 
-        global DataReader getReader() {
+        global Reader getReader() {
             return this.reader;
         }
 
-        global DataWriter getWriter() {
+        global Writer getWriter() {
             return this.writer;
         }
     }
 
-    global class Reader implements DataReader {
+    global class Reader implements DataInterfaces.Reader {
         private List<SObject> records = new List<SObject>();
         private Schema.SObjectType sobjectType;
         private String sobjectTypeString;
@@ -238,23 +238,22 @@ global inherited sharing class DataAccessorTestFactory {
 
     @isTest
     private static void validateReadOperations() {
-        String ACCOUNT_NAME = 'TestAccount';
-        String CASE_SUBJECT = 'Test Case';
+        Account act = getTestAccount();
+        Contact ct = getTestContact();
+        Task t = getTestTask();
         Accessor accessor = init(Schema.Contact.getSObjectType());
         Reader reader = (Reader) accessor.getReader();
-        reader.addRoot(new Contact(LastName = 'Goodtest'));
-        reader.relateChild(new Case(Subject = CASE_SUBJECT));
-        reader.relateChild(new Case(Subject = CASE_SUBJECT));
-        reader.relateParent(
-            new Account(Name = ACCOUNT_NAME),
-            Schema.Contact.AccountId
-        );
+        reader.addRoot(ct);
+        reader.relateChild(t);
+        reader.relateChild(t);
+        reader.relateParent(act, Schema.Contact.AccountId);
         // ensure casting and references work as expected
         Contact c = (Contact) reader.read()[0];
+        Assert.areEqual(ct.LastName, c.LastName);
+        Assert.areEqual(act.Name, c.Account.Name);
+        Assert.areEqual(2, c.Tasks.size());
+        Assert.areEqual(t.Subject, c.Tasks.get(0).Subject);
         System.debug('\n' + JSON.serializePretty(c));
-        Assert.areEqual(ACCOUNT_NAME, c.Account.Name);
-        Assert.areEqual(2, c.Cases.size());
-        Assert.areEqual(CASE_SUBJECT, c.Cases.get(0).Subject);
     }
 
     @isTest
@@ -269,5 +268,90 @@ global inherited sharing class DataAccessorTestFactory {
         writer.updateRecords(records);
         writer.deleteRecords(records);
         writer.undeleteRecords(records);
+    }
+
+    @isTest
+    /**
+     * @description Compares runtime performance of creating and querying records in the
+     * database versus mocking the result. The db benchmarks will be highly specific to
+     * the org in which they are run.
+     */
+    private static void benchmark() {
+        Datetime dbStart, dbEnd;
+        Datetime mockStart, mockEnd;
+        Integer dbMs, mockMs, diffMs;
+        try {
+            // db benchmark
+            dbStart = Datetime.now();
+            insert getTestAccount();
+            insert getTestContact();
+            insert new List<Task>{ getTestTask(), getTestTask() };
+            List<Contact> dbresult = [
+                SELECT
+                    Id,
+                    Name,
+                    Account.Id,
+                    Account.Name,
+                    (SELECT Id, Subject FROM Tasks)
+                FROM Contact
+            ];
+            dbEnd = Datetime.now();
+            dbMs = dbEnd.getTime().intValue() - dbStart.getTime().intValue();
+            // mock benchmark
+            mockStart = Datetime.now();
+            Accessor accessor = init(Schema.Contact.getSObjectType());
+            Reader reader = (Reader) accessor.getReader();
+            reader.addRoot(getTestContact());
+            reader.relateChild(getTestTask());
+            reader.relateChild(getTestTask());
+            reader.relateParent(getTestAccount(), Schema.Contact.AccountId);
+            List<Contact> contacts = (List<Contact>) reader.read();
+            mockEnd = Datetime.now();
+            mockMs =
+                mockEnd.getTime().intValue() - mockStart.getTime().intValue();
+            // calculate diff
+            diffMs = dbMs - mockMs;
+            System.debug(
+                System.LoggingLevel.INFO,
+                String.format(
+                    '\n--------------------\n' +
+                        'Benchmark Results' +
+                        '\n--------------------\n' +
+                        '{0}\n{1}\n{2}*' +
+                        '\n--------------------\n*{3}' +
+                        '\n--------------------\n' +
+                        '--------------------\n',
+                    new List<String>{
+                        'Db runtime (ms): ' + dbMs,
+                        'Mock runtime (ms): ' + mockMs,
+                        'Diff (ms): ' + diffMs,
+                        'Benchmark results are highly org-specific and influenced by factors including data volume ' +
+                        'and the number and complexity of database-triggered automations, sharing rules, etc.'
+                    }
+                )
+            );
+        } catch (DmlException e) {
+            System.debug(
+                System.LoggingLevel.ERROR,
+                'Could not perform benchmark test due to DmlException:\n' +
+                e.getMessage()
+            );
+        } catch (Exception e) {
+            System.debug(
+                System.LoggingLevel.ERROR,
+                'Could not perform benchmark test due to unhandled exception:\n' +
+                e.getMessage()
+            );
+        }
+    }
+
+    private static Account getTestAccount() {
+        return new Account(Name = 'TestAccount');
+    }
+    private static Contact getTestContact() {
+        return new Contact(LastName = 'GoodTest');
+    }
+    private static Task getTestTask() {
+        return new Task(Subject = 'Test Task');
     }
 }

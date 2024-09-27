@@ -2,7 +2,7 @@
  * @description A base-level implementation of DataWriter where all methods are virtual and overridable
  * by an extending class.
  */
-global inherited sharing virtual class DataWriterBase implements DataWriter {
+global inherited sharing virtual class DataWriterBase implements DataInterfaces.Writer {
     private final Schema.SObjectType sobjectType;
     /** @constructor */
     global DataWriterBase(Schema.SObjectType sobjectType) {
