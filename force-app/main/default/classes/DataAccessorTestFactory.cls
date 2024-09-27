@@ -262,7 +262,7 @@ global inherited sharing class DataAccessorTestFactory {
         List<Account> records = new List<Account>();
         Schema.SObjectType actType = Schema.Account.getSObjectType();
         DataWriterBase writer = new DataWriterBase(actType);
-        Assert.areEqual(actType, writer.handlesType());
+        Assert.areEqual(actType, writer.handlesTypes()[0]);
         writer.insertRecords(records);
         writer.upsertRecords(records);
         writer.updateRecords(records);

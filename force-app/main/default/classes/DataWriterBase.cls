@@ -13,7 +13,7 @@ global inherited sharing virtual class DataWriterBase implements DataInterfaces.
         this.sobjectTypes = sobjectTypes;
     }
 
-    global List<Schema.SObjectType> handlesType() {
+    global List<Schema.SObjectType> handlesTypes() {
         return this.sobjectTypes;
     }
 

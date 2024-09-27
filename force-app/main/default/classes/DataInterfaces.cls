@@ -33,7 +33,7 @@ global inherited sharing class DataInterfaces {
      * and overhead.
      */
     global interface Writer {
-        List<Schema.SObjectType> handlesType();
+        List<Schema.SObjectType> handlesTypes();
         List<Database.SaveResult> insertRecords(List<SObject> records);
         List<Database.SaveResult> updateRecords(List<SObject> records);
         List<Database.UpsertResult> upsertRecords(List<SObject> records);
