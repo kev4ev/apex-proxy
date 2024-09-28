@@ -69,6 +69,8 @@ global inherited sharing class DataAccessorTestFactory {
         private List<Schema.ChildRelationship> children;
         // more performant than round-trip serialization / deserialization
         private Map<Integer, ChildRecords> childMap = new Map<Integer, ChildRecords>();
+        /** @description A test spy that will be invoked when Reader is used as a Test stub */
+        private System.StubProvider callback;
         /** @constructor */
         private Reader(Schema.SObjectType sobjectType) {
             this.sobjectType = sobjectType;
@@ -176,6 +178,16 @@ global inherited sharing class DataAccessorTestFactory {
             );
             this.records[rootRecordPosition] = newRoot;
         }
+
+        global Object asTestStub(
+            System.Type concreteReaderType,
+            System.StubProvider callback
+        ) {
+            return Test.createStub(
+                concreteReaderType,
+                new StubWrapper(this, callback)
+            );
+        }
     }
 
     global class Writer extends DataWriterBase {
@@ -219,6 +231,41 @@ global inherited sharing class DataAccessorTestFactory {
         }
     }
 
+    private class StubWrapper implements System.StubProvider {
+        private Reader reader;
+        private System.StubProvider callback;
+        public StubWrapper(Reader reader, System.StubProvider callback) {
+            this.reader = reader;
+            this.callback = callback;
+        }
+
+        public Object handleMethodCall(
+            Object stubbedObject,
+            String stubbedMethodName,
+            System.Type returnType,
+            List<System.Type> listOfParamTypes,
+            List<String> listOfParamNames,
+            List<Object> listOfArgs
+        ) {
+            // if zero-arg read() invocation, hit the reader
+            if (
+                stubbedMethodName.equalsIgnoreCase('read') &&
+                (listOfArgs == null || listOfArgs.isEmpty())
+            ) {
+                return reader.read();
+            }
+            // else pass through to callback
+            return callback.handleMethodCall(
+                stubbedObject,
+                stubbedMethodName,
+                returnType,
+                listOfParamTypes,
+                listOfParamNames,
+                listOfArgs
+            );
+        }
+    }
+
     private class ChildRecords {
         public Integer totalSize = 0;
         public Boolean done = true;
@@ -234,6 +281,29 @@ global inherited sharing class DataAccessorTestFactory {
     }
 
     private class AccessorException extends Exception {
+    }
+
+    private class StubCallback implements System.StubProvider {
+        public Boolean called = false;
+        public StubCallback() {
+        }
+        public Object handleMethodCall(
+            Object stubbedObject,
+            String stubbedMethodName,
+            System.Type returnType,
+            List<System.Type> listOfParamTypes,
+            List<String> listOfParamNames,
+            List<Object> listOfArgs
+        ) {
+            this.called = true;
+
+            return listOfArgs.size() > 0 ? listOfArgs[0] : null;
+        }
+    }
+
+    @isTest
+    private static void coverDataInterfaces() {
+        new DataInterfaces();
     }
 
     @isTest
@@ -254,6 +324,32 @@ global inherited sharing class DataAccessorTestFactory {
         Assert.areEqual(2, c.Tasks.size());
         Assert.areEqual(t.Subject, c.Tasks.get(0).Subject);
         System.debug('\n' + JSON.serializePretty(c));
+    }
+
+    @isTest
+    private static void validateReaderAsTestStub() {
+        // init reader
+        Accessor accessor = init(Schema.Contact.getSObjectType());
+        Reader reader = (Reader) accessor.getReader();
+        Contact ct = getTestContact();
+        reader.addRoot(ct);
+        reader.relateChild(getTestTask());
+        reader.relateChild(getTestTask());
+        reader.relateParent(getTestAccount(), Schema.Contact.AccountId);
+        // mock a concrete implementation
+        StubCallback callback = new StubCallback();
+        DataReaderTestStub stubbed = (DataReaderTestStub) reader.asTestStub(
+            DataReaderTestStub.class,
+            callback
+        );
+        // validate that any method other than read() returns the arg passed to it
+        String expected = 'validated';
+        String actual = stubbed.stubValidator(expected);
+        Assert.areEqual(expected, actual);
+        Assert.isTrue(callback.called);
+        // validate that read() method returns the test reader's sobject list
+        List<Contact> contacts = (List<Contact>) stubbed.read();
+        Assert.areEqual(1, contacts.size());
     }
 
     @isTest
@@ -343,11 +439,6 @@ global inherited sharing class DataAccessorTestFactory {
                 e.getMessage()
             );
         }
-    }
-
-    @isTest
-    private static void coverDataInterfaces() {
-        new DataInterfaces();
     }
 
     private static Account getTestAccount() {
