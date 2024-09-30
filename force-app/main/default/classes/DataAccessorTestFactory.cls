@@ -6,8 +6,10 @@
 global inherited sharing class DataAccessorTestFactory {
     private static Map<Schema.SObjectType, Integer> recordIdCounter = new Map<Schema.SObjectType, Integer>();
 
-    private static void setId(SObject record) {
+    global static SObject setFauxId(SObject record) {
         record.Id = getFauxId(record);
+
+        return record;
     }
 
     global static String getFauxId(SObject record) {
@@ -215,7 +217,7 @@ global inherited sharing class DataAccessorTestFactory {
          */
         global Reader addRoot(SObject record) {
             // set a faux id
-            setId(record);
+            setFauxId(record);
             // get the list to append record
             List<SObject> appendTo = getCurrentBuildtimeRecords();
             // ensure sobjecttype list equality
@@ -252,39 +254,13 @@ global inherited sharing class DataAccessorTestFactory {
             return this;
         }
 
-        global Reader relateParent(SObject parent, Schema.SObjectField field) {
-            return relateParent(
-                parent,
-                field,
-                getCurrentBuildtimeRecords().size() - 1
-            );
-        }
-
-        global Reader relateParent(
-            SObject parent,
-            Schema.SObjectField field,
-            Integer rootRecordPosition
-        ) {
-            // set faux id
-            setId(parent);
-            // normalize relationship name
-            String rawName = field.getDescribe().getName();
-            String relName = rawName.endsWith('__c')
-                ? rawName.replace('__c', '__r')
-                : rawName.replace('Id', '');
-            // delegate field set and return self
-            setRootFieldDynamic(rootRecordPosition, relName, parent);
-
-            return this;
-        }
-
         global Reader relateChild(SObject child) {
             return relateChild(child, getCurrentBuildtimeRecords().size() - 1);
         }
 
         global Reader relateChild(SObject child, Integer rootRecordPosition) {
             // set faux id
-            setId(child);
+            setFauxId(child);
             // find the relationship name
             SObject parent = getCurrentBuildtimeRecords()
                 .get(rootRecordPosition);
@@ -327,6 +303,32 @@ global inherited sharing class DataAccessorTestFactory {
             return this;
         }
 
+        global Reader relateParent(SObject parent, Schema.SObjectField field) {
+            return relateParent(
+                parent,
+                field,
+                getCurrentBuildtimeRecords().size() - 1
+            );
+        }
+
+        global Reader relateParent(
+            SObject parent,
+            Schema.SObjectField field,
+            Integer rootRecordPosition
+        ) {
+            // set faux id
+            setFauxId(parent);
+            // normalize relationship name
+            String rawName = field.getDescribe().getName();
+            String relName = rawName.endsWith('__c')
+                ? rawName.replace('__c', '__r')
+                : rawName.replace('Id', '');
+            // delegate field set and return self
+            setRootFieldDynamic(rootRecordPosition, relName, parent);
+
+            return this;
+        }
+
         private void setRootFieldDynamic(
             Integer rootRecordPosition,
             String fieldKey,
@@ -356,6 +358,20 @@ global inherited sharing class DataAccessorTestFactory {
                 concreteReaderType,
                 new StubWrapper(this, controller)
             );
+        }
+    }
+
+    private class ChildRecords {
+        public Integer totalSize = 0;
+        public Boolean done = true;
+        public List<SObject> records = new List<SObject>();
+        /** @constructor */
+        public ChildRecords() {
+        }
+
+        public void add(SObject child) {
+            this.records.add(child);
+            this.totalSize = this.records.size();
         }
     }
 
@@ -398,13 +414,30 @@ global inherited sharing class DataAccessorTestFactory {
             // do nothing
             return null;
         }
+
+        global Object asTestStub(
+            System.Type concreteReaderType,
+            System.StubProvider controller
+        ) {
+            return Test.createStub(
+                concreteReaderType,
+                new StubWrapper(this, controller)
+            );
+        }
     }
 
     private class StubWrapper implements System.StubProvider {
         private Reader reader;
+        private Writer writer;
         private System.StubProvider controller;
+
         public StubWrapper(Reader reader, System.StubProvider controller) {
             this.reader = reader;
+            this.controller = controller;
+        }
+
+        public StubWrapper(Writer writer, System.StubProvider controller) {
+            this.writer = writer;
             this.controller = controller;
         }
 
@@ -416,11 +449,15 @@ global inherited sharing class DataAccessorTestFactory {
             List<String> listOfParamNames,
             List<Object> listOfArgs
         ) {
-            // append reader as final item to listOfArgs
+            // append reader or writer as final item to listOfArgs
             if (listOfArgs == null) {
                 listOfArgs = new List<Object>();
             }
-            listOfArgs.add(this.reader);
+            if (this.reader != null) {
+                listOfArgs.add(this.reader);
+            } else if (this.writer != null) {
+                listOfArgs.add(this.writer);
+            }
 
             // pass through to controller to return object
             return controller.handleMethodCall(
@@ -431,20 +468,6 @@ global inherited sharing class DataAccessorTestFactory {
                 listOfParamNames,
                 listOfArgs
             );
-        }
-    }
-
-    private class ChildRecords {
-        public Integer totalSize = 0;
-        public Boolean done = true;
-        public List<SObject> records = new List<SObject>();
-        /** @constructor */
-        public ChildRecords() {
-        }
-
-        public void add(SObject child) {
-            this.records.add(child);
-            this.totalSize = this.records.size();
         }
     }
 
