@@ -74,6 +74,68 @@ private inherited sharing class DataAccessorTestFactory_Test {
     }
 
     @isTest
+    private static void when_stepNotLooped_expect_null() {
+        DataAccessorTestFactory.Reader reader = getReader();
+        Assert.areEqual(1, reader.read().size());
+        Assert.areEqual(null, reader.read());
+    }
+
+    @isTest
+    private static void when_loopedStep_expect_repeatsUntilCancelled() {
+        TestDataSet data = new TestDataSet();
+        DataAccessorTestFactory.Reader reader = data.accessor.getReader();
+        reader.addReadStep(new Contact(LastName = 'secondStep'));
+        // loop result step 0
+        reader.loopReadStep(0);
+        for (Integer i = 0, k = randomLessThan(10); i < k; i++) {
+            Assert.areEqual(
+                data.ct.LastName,
+                ((Contact) reader.read()[0]).LastName
+            );
+        }
+        reader.cancelLoop();
+        Assert.areEqual('secondStep', ((Contact) reader.read()[0]).LastName);
+        // now reads are exhausted, expect null
+        Assert.areEqual(null, reader.read());
+    }
+
+    @isTest
+    private static void when_loopedCondition_expect_repeatsUntilCancelled() {
+        String CONDITION = 'condition';
+        TestDataSet data = new TestDataSet();
+        DataAccessorTestFactory.Reader reader = data.accessor.getReader();
+        reader.addReadStep(new Contact(LastName = 'secondStep'));
+        reader.addConditionalRead(new Contact(LastName = CONDITION), CONDITION);
+        reader.loopReadCondition(CONDITION);
+        for (Integer i = 0, k = randomLessThan(10); i < k; i++) {
+            assert.areEqual(CONDITION, ((Contact) reader.read()[0]).LastName);
+        }
+        // cancel the loop and assert steps continue as expected
+        reader.cancelLoop();
+        Assert.areEqual(data.ct.LastName, getFirstContact(data).LastName);
+        Assert.areEqual('secondStep', getFirstContact(data).LastName);
+        Assert.areEqual(null, reader.read());
+    }
+
+    @isTest
+    private static void validateEmptyRead() {
+        DataAccessorTestFactory.Reader reader = DataAccessorTestFactory.init()
+            .getReader();
+        reader.addEmptyReadStep();
+        Assert.areEqual(0, reader.read().size());
+    }
+
+    private static Contact getFirstContact(TestDataSet tds) {
+        return ((Contact) tds.accessor.getReader().read()[0]);
+    }
+
+    private static Integer randomLessThan(Integer ceiling) {
+        Integer rand = (Math.random() * ceiling).round().intValue();
+
+        return rand > 0 ? rand : 1;
+    }
+
+    @isTest
     private static void validateDataWriterBase() {
         // init empty list for line coverage
         List<Account> records = new List<Account>();
@@ -83,6 +145,10 @@ private inherited sharing class DataAccessorTestFactory_Test {
         writer.updateRecords(records);
         writer.deleteRecords(records);
         writer.undeleteRecords(records);
+    }
+
+    private static DataAccessorTestFactory.Reader getReader() {
+        return new TestDataSet().accessor.getReader();
     }
 
     private class TestDataSet {

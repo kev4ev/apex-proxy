@@ -67,7 +67,7 @@ global inherited sharing class DataAccessorTestFactory {
         // build-time state
         private String buildtimeCondition;
         // read-time (rt) state
-        private Integer readtimeReadStep = 0;
+        private Integer readtimeReadStep = -1; // incremented upon first read()
         private String readtimeCondition;
         private Boolean freezeReadState = false;
         /** @description A callback controller that will be invoked when Reader is used as a Test stub */
@@ -91,13 +91,14 @@ global inherited sharing class DataAccessorTestFactory {
                     this.readtimeCondition = null;
                 }
             } else {
+                // increment the read list
+                if (!freezeReadState) {
+                    this.readtimeReadStep += 1;
+                }
                 // return the list or null if read steps exhausted
                 readList = readtimeReadStep < this.readStepRecords.size()
                     ? this.readStepRecords.get(this.readtimeReadStep)
                     : null;
-                if (!freezeReadState) {
-                    this.readtimeReadStep += 1;
-                }
             }
 
             // return the results
@@ -107,11 +108,11 @@ global inherited sharing class DataAccessorTestFactory {
         global Reader loopReadStep(Integer step) {
             this.freezeReadState = true;
             Integer max = readStepRecords.size() - 1;
-            if (step > max) {
+            if (step < 0 || step > max) {
                 throw new AccessorException(
                     'Index out of bounds: ' +
                         step.toString() +
-                        '; max size is ' +
+                        '; min is 0 and max size is ' +
                         max
                 );
             }
@@ -134,7 +135,7 @@ global inherited sharing class DataAccessorTestFactory {
         }
 
         global Reader loopReadCondition(String condition) {
-            this.freezeReadState = false;
+            this.freezeReadState = true;
 
             return setReadCondition(condition);
         }
