@@ -1,12 +1,6 @@
 @isTest
 public inherited sharing class DataReaderTestStub implements DataInterfaces.Reader {
-    Schema.SObjectType sobjecttype;
-    public DataReaderTestStub(Schema.SObjectType sobjecttype) {
-        this.sobjecttype = sobjecttype;
-    }
-
-    public Schema.SObjectType handlesType() {
-        return this.sobjecttype;
+    public DataReaderTestStub() {
     }
 
     public List<SObject> read() {

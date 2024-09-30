@@ -27,30 +27,23 @@ global inherited sharing class DataAccessorTestFactory {
         return fauxId;
     }
 
-    global static DataAccessorTestFactory.Accessor init(
-        Schema.SObjectType sobjectType
-    ) {
-        return init(sobjectType, null);
+    global static DataAccessorTestFactory.Accessor init() {
+        return init(null);
     }
 
-    global static DataAccessorTestFactory.Accessor init(
-        Schema.SObjectType sobjectType,
-        Writer writer
-    ) {
-        writer = writer ?? new Writer(sobjectType);
+    global static DataAccessorTestFactory.Accessor init(Writer writer) {
+        writer = writer ?? new Writer();
 
-        return new Accessor(sobjectType, writer);
+        return new Accessor(writer);
     }
 
     global class Accessor implements DataInterfaces.Accessor {
-        private Schema.SObjectType sobjectType;
         private Reader reader;
         private Writer writer;
 
-        private Accessor(Schema.SObjectType sobjectType, Writer writer) {
-            this.sobjectType = sobjectType;
+        private Accessor(Writer writer) {
             this.writer = writer;
-            this.reader = new Reader(sobjectType);
+            this.reader = new Reader();
         }
 
         global Reader getReader() {
@@ -63,51 +56,200 @@ global inherited sharing class DataAccessorTestFactory {
     }
 
     global class Reader implements DataInterfaces.Reader {
-        private List<SObject> records = new List<SObject>();
-        private Schema.SObjectType sobjectType;
-        private String sobjectTypeString;
-        private List<Schema.ChildRelationship> children;
-        // more performant than round-trip serialization / deserialization
-        private Map<Integer, ChildRecords> childMap = new Map<Integer, ChildRecords>();
-        /** @description A test spy that will be invoked when Reader is used as a Test stub */
-        private System.StubProvider callback;
+        // meta
+        private Map<Schema.SObjectType, List<Schema.ChildRelationship>> childrenRelMap = new Map<Schema.SObjectType, List<Schema.ChildRelationship>>();
+        // records
+        private List<List<SObject>> readStepRecords = new List<List<SObject>>{
+            new List<SObject>()
+        };
+        private Map<String, List<SObject>> readConditionalRecords = new Map<String, List<SObject>>();
+        private Map<String, ChildRecords> childMap = new Map<String, ChildRecords>();
+        // build-time state
+        private String buildtimeCondition;
+        // read-time (rt) state
+        private Integer readtimeReadStep = 0;
+        private String readtimeCondition;
+        private Boolean freezeReadState = false;
+        /** @description A callback controller that will be invoked when Reader is used as a Test stub */
+        private System.StubProvider controller;
         /** @constructor */
-        private Reader(Schema.SObjectType sobjectType) {
-            this.sobjectType = sobjectType;
-            this.sobjectTypeString = sobjectType.getDescribe().getName();
-            this.children = sobjectType.getDescribe().getChildRelationships();
+        private Reader() {
         }
 
-        global Schema.SObjectType handlesType() {
-            return this.sobjectType;
-        }
+        /********************
+         * READ-TIME METHODS
+         ********************/
 
         global List<SObject> read() {
-            return this.records;
+            List<SObject> readList;
+            // read either from current conditional list or step list
+            if (String.isNotBlank(this.readtimeCondition)) {
+                readList = this.readConditionalRecords.get(
+                    this.readtimeCondition
+                );
+                if (!freezeReadState) {
+                    this.readtimeCondition = null;
+                }
+            } else {
+                // return the list or null if read steps exhausted
+                readList = readtimeReadStep < this.readStepRecords.size()
+                    ? this.readStepRecords.get(this.readtimeReadStep)
+                    : null;
+                if (!freezeReadState) {
+                    this.readtimeReadStep += 1;
+                }
+            }
+
+            // return the results
+            return readList;
         }
 
+        global Reader loopReadStep(Integer step) {
+            this.freezeReadState = true;
+            Integer max = readStepRecords.size() - 1;
+            if (step > max) {
+                throw new AccessorException(
+                    'Index out of bounds: ' +
+                        step.toString() +
+                        '; max size is ' +
+                        max
+                );
+            }
+            this.readtimeReadStep = step;
+
+            return this;
+        }
+
+        global Reader setReadCondition(String condition) {
+            if (!this.readConditionalRecords.keySet().contains(condition)) {
+                throw new AccessorException(
+                    'Condition ' +
+                        condition +
+                        ' was never initialized. Use addConditionalRead().'
+                );
+            }
+            this.readtimeCondition = condition;
+
+            return this;
+        }
+
+        global Reader loopReadCondition(String condition) {
+            this.freezeReadState = false;
+
+            return setReadCondition(condition);
+        }
+
+        /********************
+         * BUILD-TIME METHODS
+         ********************/
+
+        /**
+         * Adds a read step that will return a list of records of size 0.
+         * @return {Reader} the reader instance for chaining
+         */
+        global Reader addEmptyReadStep() {
+            Integer addNew = getBuildtimeStepRecords().isEmpty() ? 1 : 2;
+            for (Integer i = 0, k = addNew; i < k; i++) {
+                this.readStepRecords.add(new List<SObject>());
+            }
+
+            return this;
+        }
+
+        /**
+         * Add a new read step to the Reader.
+         * @param {SObject} record the root record to initizize the new read step list
+         * @return {Reader} the reader instance for chaining
+         */
+        global Reader addReadStep(SObject record) {
+            // ensure current list is not empty
+            if (getBuildtimeStepRecords().isEmpty()) {
+                throw new AccessorException(
+                    'Current read step record list is empty. ' +
+                        'You may not add a new read step while the current one is empty. If you want to add ' +
+                        'an empty read step, use addEmptyRead().'
+                );
+            }
+            this.readStepRecords.add(new List<SObject>());
+            this.buildtimeCondition = null;
+
+            return record == null ? this : addRoot(record);
+        }
+
+        /**
+         * Add a new read step to the Reader.
+         * @param {SObject} record the root record to initizize the new read step list
+         * @param {String} condition the condition that must be set for the record list to return; use
+         * setReadCondition() to enable the condition
+         * @return {Reader} the reader instance for chaining
+         */
+        global Reader addConditionalRead(SObject record, String condition) {
+            this.readConditionalRecords.put(condition, new List<SObject>());
+            this.buildtimeCondition = condition;
+
+            return addRoot(record);
+        }
+
+        private List<SObject> getCurrentBuildtimeRecords() {
+            return String.isNotBlank(this.buildtimeCondition)
+                ? this.readConditionalRecords.get(this.buildtimeCondition)
+                : getBuildtimeStepRecords();
+        }
+
+        private List<SObject> getBuildtimeStepRecords() {
+            return this.readStepRecords.get(this.readStepRecords.size() - 1);
+        }
+
+        /**
+         * Add a record to the current read list.
+         * @param {SObject} record the record to add
+         * @return {Reader} this instance for chaining
+         */
         global Reader addRoot(SObject record) {
+            // set a faux id
             setId(record);
-            Schema.SObjectType recordSObjectType = record.getSObjectType();
-            if (recordSObjectType != this.sobjectType) {
+            // get the list to append record
+            List<SObject> appendTo = getCurrentBuildtimeRecords();
+            // ensure sobjecttype list equality
+            Schema.SObjectType currentBuildType = appendTo.isEmpty()
+                ? null
+                : appendTo.get(0).getSObjectType();
+            Schema.SObjectType recordSobjectType = record.getSObjectType();
+            if (
+                currentBuildType != null &&
+                currentBuildType != recordSobjectType
+            ) {
                 throw new AccessorException(
                     String.format(
-                        'Accessor\'s root SObjectType is {0} but record\'s type is {1}',
+                        'Current list\'s sobjectTYpe is "{0}" but record is of type "{1}.' +
+                            '\nA list can only return records of the same sobjecttype.' +
+                            '\n Add a new step to return records of a new sobjecttype',
                         new List<String>{
-                            sobjectTypeString,
-                            recordSObjectType.getDescribe().getName()
+                            currentBuildType.getDescribe().getName(),
+                            recordSobjectType.getDescribe().getName()
                         }
                     )
                 );
             }
-
-            this.records.add(record);
+            // conditionally add child meta
+            if (!this.childrenRelMap.containsKey(recordSobjectType)) {
+                this.childrenRelMap.put(
+                    recordSobjectType,
+                    recordSobjectType.getDescribe().getChildRelationships()
+                );
+            }
+            // add the record and return self
+            appendTo.add(record);
 
             return this;
         }
 
         global Reader relateParent(SObject parent, Schema.SObjectField field) {
-            return relateParent(parent, field, this.records.size() - 1);
+            return relateParent(
+                parent,
+                field,
+                getCurrentBuildtimeRecords().size() - 1
+            );
         }
 
         global Reader relateParent(
@@ -115,46 +257,63 @@ global inherited sharing class DataAccessorTestFactory {
             Schema.SObjectField field,
             Integer rootRecordPosition
         ) {
+            // set faux id
             setId(parent);
+            // normalize relationship name
             String rawName = field.getDescribe().getName();
             String relName = rawName.endsWith('__c')
                 ? rawName.replace('__c', '__r')
                 : rawName.replace('Id', '');
+            // delegate field set and return self
             setRootFieldDynamic(rootRecordPosition, relName, parent);
+
             return this;
         }
 
         global Reader relateChild(SObject child) {
-            return relateChild(child, this.records.size() - 1);
+            return relateChild(child, getCurrentBuildtimeRecords().size() - 1);
         }
 
         global Reader relateChild(SObject child, Integer rootRecordPosition) {
+            // set faux id
             setId(child);
+            // find the relationship name
+            SObject parent = getCurrentBuildtimeRecords()
+                .get(rootRecordPosition);
+            Schema.SObjectType parentType = parent.getSObjectType();
             Schema.SObjectType childType = child.getSObjectType();
             String relationshipName;
-            for (Schema.ChildRelationship rel : this.children) {
+            for (
+                Schema.ChildRelationship rel : this.childrenRelMap.get(
+                    parentType
+                )
+            ) {
                 if (rel.getChildSObject() == childType) {
                     relationshipName = rel.getRelationshipName();
 
                     break;
                 }
             }
+            // throw if invalid relationship
             if (String.isBlank(relationshipName)) {
                 throw new AccessorException(
                     childType.getDescribe().getName() +
                         ' is not a valid child of ' +
-                        sobjectTypeString
+                        parentType.getDescribe().getName()
                 );
             }
 
-            // get or init ChildRecords
-            ChildRecords children = this.childMap.get(rootRecordPosition);
+            // get or init ChildRecords by faux id of the parent
+            String fauxParentId = getCurrentBuildtimeRecords()
+                .get(rootRecordPosition)
+                .Id;
+            ChildRecords children = this.childMap.get(fauxParentId);
             if (children == null) {
                 children = new ChildRecords();
-                childMap.put(rootRecordPosition, children);
+                childMap.put(fauxParentId, children);
             }
             children.add(child);
-
+            // delegate field set and return self
             setRootFieldDynamic(rootRecordPosition, relationshipName, children);
 
             return this;
@@ -166,7 +325,8 @@ global inherited sharing class DataAccessorTestFactory {
             Object fieldValue
         ) {
             // serialize and deserialize
-            SObject root = this.records.get(rootRecordPosition);
+            List<SObject> records = getCurrentBuildtimeRecords();
+            SObject root = records.get(rootRecordPosition);
             Map<String, Object> rootMap = (Map<String, Object>) JSON.deserializeUntyped(
                 JSON.serialize(root)
             );
@@ -176,23 +336,24 @@ global inherited sharing class DataAccessorTestFactory {
                 JSON.serialize(rootMap),
                 SObject.class
             );
-            this.records[rootRecordPosition] = newRoot;
+            // reset the record in the correct buildtime position
+            records[rootRecordPosition] = newRoot;
         }
 
         global Object asTestStub(
             System.Type concreteReaderType,
-            System.StubProvider callback
+            System.StubProvider controller
         ) {
             return Test.createStub(
                 concreteReaderType,
-                new StubWrapper(this, callback)
+                new StubWrapper(this, controller)
             );
         }
     }
 
     global class Writer extends DataWriterBase {
-        private Writer(Schema.SObjectType sobjectType) {
-            super(sobjectType);
+        private Writer() {
+            super();
         }
 
         global override List<Database.SaveResult> insertRecords(
@@ -233,10 +394,10 @@ global inherited sharing class DataAccessorTestFactory {
 
     private class StubWrapper implements System.StubProvider {
         private Reader reader;
-        private System.StubProvider callback;
-        public StubWrapper(Reader reader, System.StubProvider callback) {
+        private System.StubProvider controller;
+        public StubWrapper(Reader reader, System.StubProvider controller) {
             this.reader = reader;
-            this.callback = callback;
+            this.controller = controller;
         }
 
         public Object handleMethodCall(
@@ -247,15 +408,8 @@ global inherited sharing class DataAccessorTestFactory {
             List<String> listOfParamNames,
             List<Object> listOfArgs
         ) {
-            // if zero-arg read() invocation, hit the reader
-            if (
-                stubbedMethodName.equalsIgnoreCase('read') &&
-                (listOfArgs == null || listOfArgs.isEmpty())
-            ) {
-                return reader.read();
-            }
-            // else pass through to callback
-            return callback.handleMethodCall(
+            // pass through to controller
+            return controller.handleMethodCall(
                 stubbedObject,
                 stubbedMethodName,
                 returnType,
@@ -283,9 +437,11 @@ global inherited sharing class DataAccessorTestFactory {
     private class AccessorException extends Exception {
     }
 
-    private class StubCallback implements System.StubProvider {
+    private class StubController implements System.StubProvider {
         public Boolean called = false;
-        public StubCallback() {
+        private Reader reader;
+        public StubController(Reader reader) {
+            this.reader = reader;
         }
         public Object handleMethodCall(
             Object stubbedObject,
@@ -296,6 +452,12 @@ global inherited sharing class DataAccessorTestFactory {
             List<Object> listOfArgs
         ) {
             this.called = true;
+            if (
+                stubbedMethodName.equalsIgnoreCase('read') &&
+                listOfArgs.isEmpty()
+            ) {
+                return reader.read();
+            }
 
             return listOfArgs.size() > 0 ? listOfArgs[0] : null;
         }
@@ -311,7 +473,7 @@ global inherited sharing class DataAccessorTestFactory {
         Account act = getTestAccount();
         Contact ct = getTestContact();
         Task t = getTestTask();
-        Accessor accessor = init(Schema.Contact.getSObjectType());
+        Accessor accessor = init();
         Reader reader = (Reader) accessor.getReader();
         reader.addRoot(ct);
         reader.relateChild(t);
@@ -329,7 +491,7 @@ global inherited sharing class DataAccessorTestFactory {
     @isTest
     private static void validateReaderAsTestStub() {
         // init reader
-        Accessor accessor = init(Schema.Contact.getSObjectType());
+        Accessor accessor = init();
         Reader reader = (Reader) accessor.getReader();
         Contact ct = getTestContact();
         reader.addRoot(ct);
@@ -337,16 +499,16 @@ global inherited sharing class DataAccessorTestFactory {
         reader.relateChild(getTestTask());
         reader.relateParent(getTestAccount(), Schema.Contact.AccountId);
         // mock a concrete implementation
-        StubCallback callback = new StubCallback();
+        StubController controller = new StubController(reader);
         DataReaderTestStub stubbed = (DataReaderTestStub) reader.asTestStub(
             DataReaderTestStub.class,
-            callback
+            controller
         );
         // validate that any method other than read() returns the arg passed to it
         String expected = 'validated';
         String actual = stubbed.stubValidator(expected);
         Assert.areEqual(expected, actual);
-        Assert.isTrue(callback.called);
+        Assert.isTrue(controller.called);
         // validate that read() method returns the test reader's sobject list
         List<Contact> contacts = (List<Contact>) stubbed.read();
         Assert.areEqual(1, contacts.size());
@@ -356,9 +518,7 @@ global inherited sharing class DataAccessorTestFactory {
     private static void validateDataWriterBase() {
         // init empty list for line coverage
         List<Account> records = new List<Account>();
-        Schema.SObjectType actType = Schema.Account.getSObjectType();
-        DataWriterBase writer = new DataWriterBase(actType);
-        Assert.areEqual(actType, writer.handlesTypes()[0]);
+        DataWriterBase writer = new DataWriterBase();
         writer.insertRecords(records);
         writer.upsertRecords(records);
         writer.updateRecords(records);
@@ -395,7 +555,7 @@ global inherited sharing class DataAccessorTestFactory {
             dbMs = dbEnd.getTime().intValue() - dbStart.getTime().intValue();
             // mock benchmark
             mockStart = Datetime.now();
-            Accessor accessor = init(Schema.Contact.getSObjectType());
+            Accessor accessor = init();
             Reader reader = (Reader) accessor.getReader();
             reader.addRoot(getTestContact());
             reader.relateChild(getTestTask());

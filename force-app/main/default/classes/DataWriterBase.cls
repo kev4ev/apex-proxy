@@ -3,18 +3,8 @@
  * by an extending class.
  */
 global inherited sharing virtual class DataWriterBase implements DataInterfaces.Writer {
-    private final List<Schema.SObjectType> sobjectTypes;
     /** @constructor */
-    global DataWriterBase(Schema.SObjectType sobjectType) {
-        this(new List<Schema.SObjectType>{ sobjectType });
-    }
-
-    global DataWriterBase(List<Schema.SObjectType> sobjectTypes) {
-        this.sobjectTypes = sobjectTypes;
-    }
-
-    global List<Schema.SObjectType> handlesTypes() {
-        return this.sobjectTypes;
+    global DataWriterBase() {
     }
 
     global virtual List<Database.SaveResult> insertRecords(
