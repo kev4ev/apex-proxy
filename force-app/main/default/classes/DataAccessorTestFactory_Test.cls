@@ -6,7 +6,7 @@ private inherited sharing class DataAccessorTestFactory_Test {
     }
 
     @isTest
-    private static void validateBasicRead() {
+    private static void validateRead_basic() {
         TestDataSet data = new TestDataSet();
         // ensure casting and references work as expected
         Contact c = (Contact) data.accessor.getReader().read()[0];
@@ -33,15 +33,10 @@ private inherited sharing class DataAccessorTestFactory_Test {
     @isTest
     private static void validateReaderAsTestStub() {
         // init reader
-        DataAccessorTestFactory.Accessor accessor = DataAccessorTestFactory.init();
-        DataAccessorTestFactory.Reader reader = (DataAccessorTestFactory.Reader) accessor.getReader();
-        Contact ct = getTestContact();
-        reader.addRoot(ct);
-        reader.relateChild(getTestTask());
-        reader.relateChild(getTestTask());
-        reader.relateParent(getTestAccount(), Schema.Contact.AccountId);
+        TestDataSet data = new TestDataSet();
+        DataAccessorTestFactory.Reader reader = data.accessor.getReader();
         // mock a concrete implementation
-        StubController controller = new StubController(reader);
+        StubController controller = new StubController();
         DataReaderTestStub stubbed = (DataReaderTestStub) reader.asTestStub(
             DataReaderTestStub.class,
             controller
@@ -54,6 +49,28 @@ private inherited sharing class DataAccessorTestFactory_Test {
         // validate that read() method returns the test reader's sobject list
         List<Contact> contacts = (List<Contact>) stubbed.read();
         Assert.areEqual(1, contacts.size());
+    }
+
+    @isTest
+    private static void validateReader_conditional() {
+        // condition to validate
+        String CONDITION = 'conditionA';
+        // init reader
+        TestDataSet data = new TestDataSet();
+        DataAccessorTestFactory.Reader reader = data.accessor.getReader();
+        // mock a concrete implementation
+        StubController controller = new StubController();
+        DataReaderTestStub stubbed = (DataReaderTestStub) reader.asTestStub(
+            DataReaderTestStub.class,
+            controller
+        );
+        // set the condition in the stub and create a list for retrieval
+        stubbed.setRetrieveCondition(CONDITION);
+        reader.addConditionalRead(new Contact(LastName = CONDITION), CONDITION);
+        reader.setReadCondition(CONDITION);
+        // read and assert data set returned is the conditional set
+        List<Contact> conditionList = (List<Contact>) stubbed.read();
+        Assert.areEqual(CONDITION, conditionList.get(0).LastName);
     }
 
     @isTest
@@ -104,9 +121,9 @@ private inherited sharing class DataAccessorTestFactory_Test {
 
     private class StubController implements System.StubProvider {
         public Boolean called = false;
-        private DataAccessorTestFactory.Reader reader;
-        public StubController(DataAccessorTestFactory.Reader reader) {
-            this.reader = reader;
+        // track the set condition
+        private String condition;
+        public StubController() {
         }
         public Object handleMethodCall(
             Object stubbedObject,
@@ -121,7 +138,21 @@ private inherited sharing class DataAccessorTestFactory_Test {
                 stubbedMethodName.equalsIgnoreCase('read') &&
                 (listOfParamNames == null || listOfParamNames.isEmpty())
             ) {
+                // last arg will always be the Reader
+                DataAccessorTestFactory.Reader reader = (DataAccessorTestFactory.Reader) listOfArgs.get(
+                    listOfArgs.size() - 1
+                );
+
+                // check for conditional
+                if (String.isNotBlank(this.condition)) {
+                    reader.setReadCondition(this.condition);
+                }
+
                 return reader.read();
+            }
+
+            if (stubbedMethodName == 'setRetrieveCondition') {
+                this.condition = (String) listOfArgs.get(0);
             }
 
             return listOfArgs.size() > 0 ? listOfArgs[0] : null;

@@ -7,6 +7,9 @@ public inherited sharing class DataReaderTestStub implements DataInterfaces.Read
         return null;
     }
 
+    public void setRetrieveCondition(String condition) {
+    }
+
     public String stubValidator(String validationArg) {
         return validationArg;
     }
