@@ -375,40 +375,36 @@ global inherited sharing class DataAccessorTestFactory {
         }
     }
 
-    global class Writer extends DataInterfaces.VirtualWriter {
-        private Writer() {
-            super();
-        }
-
-        global override List<Database.SaveResult> insertRecords(
+    global virtual class Writer extends DataInterfaces.VirtualWriter {
+        global virtual override List<Database.SaveResult> insertRecords(
             List<SObject> records
         ) {
             // do nothing
             return null;
         }
 
-        global override List<Database.SaveResult> updateRecords(
+        global virtual override List<Database.SaveResult> updateRecords(
             List<SObject> records
         ) {
             // do nothing
             return null;
         }
 
-        global override List<Database.UpsertResult> upsertRecords(
+        global virtual override List<Database.UpsertResult> upsertRecords(
             List<SObject> records
         ) {
             // do nothing
             return null;
         }
 
-        global override List<Database.DeleteResult> deleteRecords(
+        global virtual override List<Database.DeleteResult> deleteRecords(
             List<SObject> records
         ) {
             // do nothing
             return null;
         }
 
-        global override List<Database.UndeleteResult> undeleteRecords(
+        global virtual override List<Database.UndeleteResult> undeleteRecords(
             List<SObject> records
         ) {
             // do nothing
