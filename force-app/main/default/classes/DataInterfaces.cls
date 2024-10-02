@@ -37,4 +37,40 @@ global inherited sharing class DataInterfaces {
         List<Database.DeleteResult> deleteRecords(List<SObject> records);
         List<Database.UndeleteResult> undeleteRecords(List<SObject> records);
     }
+
+    /**
+     * @description A base-level implementation of DataInterfaces.Writer. All methods are virtual and as such
+     * overridable by an extending class. Veneer over the Database class methods.
+     */
+    global inherited sharing virtual class VirtualWriter implements Writer {
+        global virtual List<Database.SaveResult> insertRecords(
+            List<SObject> records
+        ) {
+            return Database.insert(records);
+        }
+
+        global virtual List<Database.SaveResult> updateRecords(
+            List<SObject> records
+        ) {
+            return Database.update(records);
+        }
+
+        global virtual List<Database.UpsertResult> upsertRecords(
+            List<SObject> records
+        ) {
+            return Database.upsert(records);
+        }
+
+        global virtual List<Database.DeleteResult> deleteRecords(
+            List<SObject> records
+        ) {
+            return Database.delete(records);
+        }
+
+        global virtual List<Database.UndeleteResult> undeleteRecords(
+            List<SObject> records
+        ) {
+            return Database.undelete(records);
+        }
+    }
 }

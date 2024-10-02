@@ -375,7 +375,7 @@ global inherited sharing class DataAccessorTestFactory {
         }
     }
 
-    global class Writer extends DataWriterBase {
+    global class Writer extends DataInterfaces.VirtualWriter {
         private Writer() {
             super();
         }

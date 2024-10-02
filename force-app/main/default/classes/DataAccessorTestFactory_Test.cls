@@ -1,5 +1,28 @@
+/**
+ * @description Test class for DataAccessorTestFactory functionality.
+ * Implements DataInterfaces.Reader itself to provide coverage of stub functionalities.
+ */
 @isTest
-private inherited sharing class DataAccessorTestFactory_Test {
+public inherited sharing class DataAccessorTestFactory_Test implements DataInterfaces.Reader {
+    /***************************************
+     * DataInterfaces.Reader implementation
+     ***************************************/
+
+    public List<SObject> read() {
+        return null;
+    }
+
+    public void setRetrieveCondition(String condition) {
+    }
+
+    public String stubValidator(String validationArg) {
+        return validationArg;
+    }
+
+    /***************************************
+     * Unit tests
+     ***************************************/
+
     @isTest
     private static void coverDataInterfaces() {
         new DataInterfaces();
@@ -37,8 +60,8 @@ private inherited sharing class DataAccessorTestFactory_Test {
         DataAccessorTestFactory.Reader reader = data.accessor.getReader();
         // mock a concrete implementation
         StubController controller = new StubController();
-        DataReaderTestStub stubbed = (DataReaderTestStub) reader.asTestStub(
-            DataReaderTestStub.class,
+        DataAccessorTestFactory_Test stubbed = (DataAccessorTestFactory_Test) reader.asTestStub(
+            DataAccessorTestFactory_Test.class,
             controller
         );
         // validate that any method other than read() returns the arg passed to it
@@ -60,8 +83,8 @@ private inherited sharing class DataAccessorTestFactory_Test {
         DataAccessorTestFactory.Reader reader = data.accessor.getReader();
         // mock a concrete implementation
         StubController controller = new StubController();
-        DataReaderTestStub stubbed = (DataReaderTestStub) reader.asTestStub(
-            DataReaderTestStub.class,
+        DataAccessorTestFactory_Test stubbed = (DataAccessorTestFactory_Test) reader.asTestStub(
+            DataAccessorTestFactory_Test.class,
             controller
         );
         // set the condition in the stub and create a list for retrieval
@@ -136,10 +159,10 @@ private inherited sharing class DataAccessorTestFactory_Test {
     }
 
     @isTest
-    private static void validateDataWriterBase() {
+    private static void validateVirtualDataWriter() {
         // init empty list for line coverage
         List<Account> records = new List<Account>();
-        DataWriterBase writer = new DataWriterBase();
+        DataInterfaces.VirtualWriter writer = new DataInterfaces.VirtualWriter();
         writer.insertRecords(records);
         writer.upsertRecords(records);
         writer.updateRecords(records);
