@@ -1,36 +1,26 @@
 /**
- * @description Provides a pseudo-namespaced collection of the data interfaces in the library.
+ * @description Provides a pseudo-namespaced collection of the extendable types in the library.
  */
-global inherited sharing class DataInterfaces {
+global inherited sharing class Proxies {
     @testVisible
     /**
      * @description TestVisible as constructor requires coverage
      * @constructor
      */
-    private DataInterfaces() {
-    }
-    /**
-     * @description An interface whose jobe is accessing data of a given SObjectType. Composes DataReader and DataWriter
-     * functionality for simplified usage.
-     */
-    global interface Accessor {
-        Reader getReader();
-        Writer getWriter();
+    private Proxies() {
     }
 
     /**
      * @description A simple interface whose sole job is reading records from the database.
-     * Makes dependency injection and mocking easy so that unit tests can minimize database calls and overhead.
      */
-    global interface Reader {
+    global interface DbRead {
         List<SObject> read();
     }
 
     /**
-     * @description A simple interface whose sole job is writing records to the database. Makes dependency injection
-     * and mocking easy so that unit tests can minimize database calls and overhead.
+     * @description A simple interface whose sole job is writing records to the database.
      */
-    global interface Writer {
+    global interface DbWrite {
         List<Database.SaveResult> insertRecords(List<SObject> records);
         List<Database.SaveResult> updateRecords(List<SObject> records);
         List<Database.UpsertResult> upsertRecords(List<SObject> records);
@@ -39,10 +29,29 @@ global inherited sharing class DataInterfaces {
     }
 
     /**
-     * @description A base-level implementation of DataInterfaces.Writer. All methods are virtual and as such
-     * overridable by an extending class. Veneer over the Database class methods.
+     * @description A convenience interface that composes DbRead and DbWrite proxies.
      */
-    global inherited sharing virtual class VirtualWriter implements Writer {
+    global interface DbHandler {
+        DbRead getReader();
+        DbWrite getWriter();
+    }
+
+    /**
+     * @description Proxy to a method call or property of an apex type (class) defined by the
+     * string that accesses it. Enables easy stubbing of class dependencies that are
+     * troublesome to isolate in unit tests.
+     */
+    global interface TypeAccessor {
+        TypeAccessor call(String accessPath);
+        TypeAccessor call(String accessPath, List<Object> args);
+    }
+
+    /**
+     * @description A convenience implementation of DbWrite that is just a veneer over Database class methods.
+     * Default implementation is suitable for most use cases but all methods are virtual so as to be overridable
+     * by an extending class.
+     */
+    global inherited sharing virtual class VirtualWriter implements DbWrite {
         global virtual List<Database.SaveResult> insertRecords(
             List<SObject> records
         ) {
@@ -72,10 +81,5 @@ global inherited sharing class DataInterfaces {
         ) {
             return Database.undelete(records);
         }
-    }
-
-    global interface MethodProxy {
-        MethodProxy call(String classMethodReference);
-        MethodProxy call(String classMethodReference, List<Object> args);
     }
 }

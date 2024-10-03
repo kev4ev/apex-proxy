@@ -1,11 +1,11 @@
 /**
- * @description Test class for DataAccessorTestFactory functionality.
- * Implements DataInterfaces.Reader itself to provide coverage of stub functionalities.
+ * @description Test class for ProxyTestFactory functionality.
+ * Implements Interfaces.DbRead itself to provide coverage of stub functionalities.
  */
 @isTest
-public inherited sharing class DataAccessorTestFactory_Test implements DataInterfaces.Reader {
+public inherited sharing class ProxyTestFactory_Test implements Interfaces.DbRead {
     /***************************************
-     * DataInterfaces.Reader implementation
+     * Interfaces.DbRead implementation
      ***************************************/
 
     public List<SObject> read() {
@@ -24,8 +24,8 @@ public inherited sharing class DataAccessorTestFactory_Test implements DataInter
      ***************************************/
 
     @isTest
-    private static void coverDataInterfaces() {
-        new DataInterfaces();
+    private static void coverInterfaces() {
+        new Interfaces();
     }
 
     @isTest
@@ -42,11 +42,11 @@ public inherited sharing class DataAccessorTestFactory_Test implements DataInter
 
     @isTest
     private static void when_mixedSobjecttype_expect_exception() {
-        DataAccessorTestFactory.Reader reader = new TestDataSet()
+        ProxyTestFactory.Reader reader = new TestDataSet()
             .accessor.getReader();
         try {
             reader.addRoot(new Account(Name = 'Shoulda Been a Contact'));
-        } catch (DataAccessorTestFactory.AccessorException ae) {
+        } catch (ProxyTestFactory.AccessorException ae) {
             Assert.isTrue(true);
         } catch (Exception e) {
             Assert.fail();
@@ -57,11 +57,11 @@ public inherited sharing class DataAccessorTestFactory_Test implements DataInter
     private static void validateReaderAsTestStub() {
         // init reader
         TestDataSet data = new TestDataSet();
-        DataAccessorTestFactory.Reader reader = data.accessor.getReader();
+        ProxyTestFactory.Reader reader = data.accessor.getReader();
         // mock a concrete implementation
         StubController controller = new StubController();
-        DataAccessorTestFactory_Test stubbed = (DataAccessorTestFactory_Test) reader.asTestStub(
-            DataAccessorTestFactory_Test.class,
+        ProxyTestFactory_Test stubbed = (ProxyTestFactory_Test) reader.asTestStub(
+            ProxyTestFactory_Test.class,
             controller
         );
         // validate that any method other than read() returns the arg passed to it
@@ -80,11 +80,11 @@ public inherited sharing class DataAccessorTestFactory_Test implements DataInter
         String CONDITION = 'conditionA';
         // init reader
         TestDataSet data = new TestDataSet();
-        DataAccessorTestFactory.Reader reader = data.accessor.getReader();
+        ProxyTestFactory.Reader reader = data.accessor.getReader();
         // mock a concrete implementation
         StubController controller = new StubController();
-        DataAccessorTestFactory_Test stubbed = (DataAccessorTestFactory_Test) reader.asTestStub(
-            DataAccessorTestFactory_Test.class,
+        ProxyTestFactory_Test stubbed = (ProxyTestFactory_Test) reader.asTestStub(
+            ProxyTestFactory_Test.class,
             controller
         );
         // set the condition in the stub and create a list for retrieval
@@ -98,7 +98,7 @@ public inherited sharing class DataAccessorTestFactory_Test implements DataInter
 
     @isTest
     private static void when_stepNotLooped_expect_null() {
-        DataAccessorTestFactory.Reader reader = getReader();
+        ProxyTestFactory.Reader reader = getReader();
         Assert.areEqual(1, reader.read().size());
         Assert.areEqual(null, reader.read());
     }
@@ -106,7 +106,7 @@ public inherited sharing class DataAccessorTestFactory_Test implements DataInter
     @isTest
     private static void when_loopedStep_expect_repeatsUntilCancelled() {
         TestDataSet data = new TestDataSet();
-        DataAccessorTestFactory.Reader reader = data.accessor.getReader();
+        ProxyTestFactory.Reader reader = data.accessor.getReader();
         reader.addReadStep(new Contact(LastName = 'secondStep'));
         // loop result step 0
         reader.loopReadStep(0);
@@ -126,7 +126,7 @@ public inherited sharing class DataAccessorTestFactory_Test implements DataInter
     private static void when_loopedCondition_expect_repeatsUntilCancelled() {
         String CONDITION = 'condition';
         TestDataSet data = new TestDataSet();
-        DataAccessorTestFactory.Reader reader = data.accessor.getReader();
+        ProxyTestFactory.Reader reader = data.accessor.getReader();
         reader.addReadStep(new Contact(LastName = 'secondStep'));
         reader.addConditionalRead(new Contact(LastName = CONDITION), CONDITION);
         reader.loopReadCondition(CONDITION);
@@ -142,7 +142,7 @@ public inherited sharing class DataAccessorTestFactory_Test implements DataInter
 
     @isTest
     private static void validateEmptyRead() {
-        DataAccessorTestFactory.Reader reader = DataAccessorTestFactory.init()
+        ProxyTestFactory.Reader reader = ProxyTestFactory.init()
             .getReader();
         reader.addEmptyReadStep();
         Assert.areEqual(0, reader.read().size());
@@ -162,7 +162,7 @@ public inherited sharing class DataAccessorTestFactory_Test implements DataInter
     private static void validateVirtualDataWriter() {
         // init empty list for line coverage
         List<Account> records = new List<Account>();
-        DataInterfaces.VirtualWriter writer = new DataInterfaces.VirtualWriter();
+        Interfaces.VirtualWriter writer = new Interfaces.VirtualWriter();
         writer.insertRecords(records);
         writer.upsertRecords(records);
         writer.updateRecords(records);
@@ -170,7 +170,7 @@ public inherited sharing class DataAccessorTestFactory_Test implements DataInter
         writer.undeleteRecords(records);
     }
 
-    private static DataAccessorTestFactory.Reader getReader() {
+    private static ProxyTestFactory.Reader getReader() {
         return new TestDataSet().accessor.getReader();
     }
 
@@ -178,11 +178,11 @@ public inherited sharing class DataAccessorTestFactory_Test implements DataInter
         public Account act = getTestAccount();
         public Contact ct = getTestContact();
         public Task tsk = getTestTask();
-        public DataAccessorTestFactory.Accessor accessor {
+        public ProxyTestFactory.Accessor accessor {
             get {
                 if (accessor == null) {
-                    accessor = DataAccessorTestFactory.init();
-                    DataAccessorTestFactory.Reader reader = (DataAccessorTestFactory.Reader) accessor.getReader();
+                    accessor = ProxyTestFactory.init();
+                    ProxyTestFactory.Reader reader = (ProxyTestFactory.Reader) accessor.getReader();
                     reader.addRoot(ct);
                     reader.relateChild(tsk);
                     reader.relateChild(tsk);
@@ -228,7 +228,7 @@ public inherited sharing class DataAccessorTestFactory_Test implements DataInter
                 (listOfParamNames == null || listOfParamNames.isEmpty())
             ) {
                 // last arg will always be the Reader
-                DataAccessorTestFactory.Reader reader = (DataAccessorTestFactory.Reader) listOfArgs.get(
+                ProxyTestFactory.Reader reader = (ProxyTestFactory.Reader) listOfArgs.get(
                     listOfArgs.size() - 1
                 );
 
@@ -277,8 +277,8 @@ public inherited sharing class DataAccessorTestFactory_Test implements DataInter
             dbMs = dbEnd.getTime().intValue() - dbStart.getTime().intValue();
             // mock benchmark
             mockStart = Datetime.now();
-            DataAccessorTestFactory.Accessor accessor = DataAccessorTestFactory.init();
-            DataAccessorTestFactory.Reader reader = (DataAccessorTestFactory.Reader) accessor.getReader();
+            ProxyTestFactory.Accessor accessor = ProxyTestFactory.init();
+            ProxyTestFactory.Reader reader = (ProxyTestFactory.Reader) accessor.getReader();
             reader.addRoot(getTestContact());
             reader.relateChild(getTestTask());
             reader.relateChild(getTestTask());

@@ -1,9 +1,14 @@
 @isTest
 /**
- * @description A factory class for unit tests that need to generate DataAccessor instances. This class includes
- * unit tests for itself at the bottom (tagged with @isTest);
+ * @description A factory class for unit test proxies. Includes:
+ *   1. DbRead proxy with a declarative builder api,
+ *   2. DbWrite proxy with default implementation that does not hit the database,
+ *   3. TypeAccessor proxy
+ *
+ * All 3 proxies also include an asTestStub() method that accepts a StubProvider instance
+ * that will receive passthrough control during method invocation.
  */
-global inherited sharing class DataAccessorTestFactory {
+global inherited sharing class ProxyTestFactory {
     private static Map<Schema.SObjectType, Integer> recordIdCounter = new Map<Schema.SObjectType, Integer>();
 
     global static SObject setFauxId(SObject record) {
@@ -29,17 +34,17 @@ global inherited sharing class DataAccessorTestFactory {
         return fauxId;
     }
 
-    global static DataAccessorTestFactory.Accessor init() {
+    global static ProxyTestFactory.Accessor init() {
         return init(null);
     }
 
-    global static DataAccessorTestFactory.Accessor init(Writer writer) {
+    global static ProxyTestFactory.Accessor init(Writer writer) {
         writer = writer ?? new Writer();
 
         return new Accessor(writer);
     }
 
-    global class Accessor implements DataInterfaces.Accessor {
+    global class Accessor implements Interfaces.Accessor {
         private Reader reader;
         private Writer writer;
 
@@ -57,7 +62,7 @@ global inherited sharing class DataAccessorTestFactory {
         }
     }
 
-    global class Reader implements DataInterfaces.Reader {
+    global class Reader implements Interfaces.DbRead {
         // meta
         private Map<Schema.SObjectType, List<Schema.ChildRelationship>> childrenRelMap = new Map<Schema.SObjectType, List<Schema.ChildRelationship>>();
         // records
@@ -375,7 +380,7 @@ global inherited sharing class DataAccessorTestFactory {
         }
     }
 
-    global virtual class Writer extends DataInterfaces.VirtualWriter {
+    global virtual class Writer extends Interfaces.VirtualWriter {
         global virtual override List<Database.SaveResult> insertRecords(
             List<SObject> records
         ) {
