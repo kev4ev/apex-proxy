@@ -8,6 +8,14 @@
       "path": "package"
     }
   ],
+  "replacements": [
+    {
+      "glob": "package/main/default/classes/*.cls",
+      "stringToReplace": "ENV_PREFIX_",
+      "replaceWithEnv": "SF_ENV_PREFIX",
+      "allowUnsetEnvVariable": true
+    }
+  ],
   "name": "apex-proxy",
   "namespace": "proxy",
   "sfdcLoginUrl": "https://login.salesforce.com",
