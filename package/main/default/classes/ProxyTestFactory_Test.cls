@@ -1,11 +1,11 @@
 /**
  * @description Test class for ProxyTestFactory functionality.
- * Implements Interfaces.DbRead itself to provide coverage of stub functionalities.
+ * Implements Proxies.DbRead itself to provide coverage of stub functionalities.
  */
 @isTest
-public inherited sharing class ProxyTestFactory_Test implements Interfaces.DbRead {
+public inherited sharing class ProxyTestFactory_Test implements Proxies.DbRead {
     /***************************************
-     * Interfaces.DbRead implementation
+     * Proxies.DbRead implementation
      ***************************************/
 
     public List<SObject> read() {
@@ -24,15 +24,15 @@ public inherited sharing class ProxyTestFactory_Test implements Interfaces.DbRea
      ***************************************/
 
     @isTest
-    private static void coverInterfaces() {
-        new Interfaces();
+    private static void coverProxiesConstructor() {
+        new Proxies();
     }
 
     @isTest
     private static void validateRead_basic() {
         TestDataSet data = new TestDataSet();
         // ensure casting and references work as expected
-        Contact c = (Contact) data.accessor.getReader().read()[0];
+        Contact c = (Contact) data.handler.getReader().read()[0];
         Assert.areEqual(data.ct.LastName, c.LastName);
         Assert.areEqual(data.act.Name, c.Account.Name);
         Assert.areEqual(2, c.Tasks.size());
@@ -42,11 +42,11 @@ public inherited sharing class ProxyTestFactory_Test implements Interfaces.DbRea
 
     @isTest
     private static void when_mixedSobjecttype_expect_exception() {
-        ProxyTestFactory.Reader reader = new TestDataSet()
-            .accessor.getReader();
+        ProxyTestFactory.DbRead reader = new TestDataSet()
+            .handler.getReader();
         try {
             reader.addRoot(new Account(Name = 'Shoulda Been a Contact'));
-        } catch (ProxyTestFactory.AccessorException ae) {
+        } catch (ProxyTestFactory.FactoryException fe) {
             Assert.isTrue(true);
         } catch (Exception e) {
             Assert.fail();
@@ -57,7 +57,7 @@ public inherited sharing class ProxyTestFactory_Test implements Interfaces.DbRea
     private static void validateReaderAsTestStub() {
         // init reader
         TestDataSet data = new TestDataSet();
-        ProxyTestFactory.Reader reader = data.accessor.getReader();
+        ProxyTestFactory.DbRead reader = data.handler.getReader();
         // mock a concrete implementation
         StubController controller = new StubController();
         ProxyTestFactory_Test stubbed = (ProxyTestFactory_Test) reader.asTestStub(
@@ -80,7 +80,7 @@ public inherited sharing class ProxyTestFactory_Test implements Interfaces.DbRea
         String CONDITION = 'conditionA';
         // init reader
         TestDataSet data = new TestDataSet();
-        ProxyTestFactory.Reader reader = data.accessor.getReader();
+        ProxyTestFactory.DbRead reader = data.handler.getReader();
         // mock a concrete implementation
         StubController controller = new StubController();
         ProxyTestFactory_Test stubbed = (ProxyTestFactory_Test) reader.asTestStub(
@@ -98,7 +98,7 @@ public inherited sharing class ProxyTestFactory_Test implements Interfaces.DbRea
 
     @isTest
     private static void when_stepNotLooped_expect_null() {
-        ProxyTestFactory.Reader reader = getReader();
+        ProxyTestFactory.DbRead reader = getReader();
         Assert.areEqual(1, reader.read().size());
         Assert.areEqual(null, reader.read());
     }
@@ -106,7 +106,7 @@ public inherited sharing class ProxyTestFactory_Test implements Interfaces.DbRea
     @isTest
     private static void when_loopedStep_expect_repeatsUntilCancelled() {
         TestDataSet data = new TestDataSet();
-        ProxyTestFactory.Reader reader = data.accessor.getReader();
+        ProxyTestFactory.DbRead reader = data.handler.getReader();
         reader.addReadStep(new Contact(LastName = 'secondStep'));
         // loop result step 0
         reader.loopReadStep(0);
@@ -126,7 +126,7 @@ public inherited sharing class ProxyTestFactory_Test implements Interfaces.DbRea
     private static void when_loopedCondition_expect_repeatsUntilCancelled() {
         String CONDITION = 'condition';
         TestDataSet data = new TestDataSet();
-        ProxyTestFactory.Reader reader = data.accessor.getReader();
+        ProxyTestFactory.DbRead reader = data.handler.getReader();
         reader.addReadStep(new Contact(LastName = 'secondStep'));
         reader.addConditionalRead(new Contact(LastName = CONDITION), CONDITION);
         reader.loopReadCondition(CONDITION);
@@ -142,14 +142,14 @@ public inherited sharing class ProxyTestFactory_Test implements Interfaces.DbRea
 
     @isTest
     private static void validateEmptyRead() {
-        ProxyTestFactory.Reader reader = ProxyTestFactory.init()
+        ProxyTestFactory.DbRead reader = ProxyTestFactory.initDbHandler()
             .getReader();
         reader.addEmptyReadStep();
         Assert.areEqual(0, reader.read().size());
     }
 
     private static Contact getFirstContact(TestDataSet tds) {
-        return ((Contact) tds.accessor.getReader().read()[0]);
+        return ((Contact) tds.handler.getReader().read()[0]);
     }
 
     private static Integer randomLessThan(Integer ceiling) {
@@ -162,7 +162,7 @@ public inherited sharing class ProxyTestFactory_Test implements Interfaces.DbRea
     private static void validateVirtualDataWriter() {
         // init empty list for line coverage
         List<Account> records = new List<Account>();
-        Interfaces.VirtualWriter writer = new Interfaces.VirtualWriter();
+        Proxies.VirtualWriter writer = new Proxies.VirtualWriter();
         writer.insertRecords(records);
         writer.upsertRecords(records);
         writer.updateRecords(records);
@@ -170,26 +170,26 @@ public inherited sharing class ProxyTestFactory_Test implements Interfaces.DbRea
         writer.undeleteRecords(records);
     }
 
-    private static ProxyTestFactory.Reader getReader() {
-        return new TestDataSet().accessor.getReader();
+    private static ProxyTestFactory.DbRead getReader() {
+        return new TestDataSet().handler.getReader();
     }
 
     private class TestDataSet {
         public Account act = getTestAccount();
         public Contact ct = getTestContact();
         public Task tsk = getTestTask();
-        public ProxyTestFactory.Accessor accessor {
+        public ProxyTestFactory.DbHandler handler {
             get {
-                if (accessor == null) {
-                    accessor = ProxyTestFactory.init();
-                    ProxyTestFactory.Reader reader = (ProxyTestFactory.Reader) accessor.getReader();
+                if (handler == null) {
+                    handler = ProxyTestFactory.initDbHandler();
+                    ProxyTestFactory.DbRead reader = (ProxyTestFactory.DbRead) handler.getReader();
                     reader.addRoot(ct);
                     reader.relateChild(tsk);
                     reader.relateChild(tsk);
                     reader.relateParent(act, Schema.Contact.AccountId);
                 }
 
-                return accessor;
+                return handler;
             }
             private set;
         }
@@ -228,7 +228,7 @@ public inherited sharing class ProxyTestFactory_Test implements Interfaces.DbRea
                 (listOfParamNames == null || listOfParamNames.isEmpty())
             ) {
                 // last arg will always be the Reader
-                ProxyTestFactory.Reader reader = (ProxyTestFactory.Reader) listOfArgs.get(
+                ProxyTestFactory.DbRead reader = (ProxyTestFactory.DbRead) listOfArgs.get(
                     listOfArgs.size() - 1
                 );
 
@@ -277,8 +277,8 @@ public inherited sharing class ProxyTestFactory_Test implements Interfaces.DbRea
             dbMs = dbEnd.getTime().intValue() - dbStart.getTime().intValue();
             // mock benchmark
             mockStart = Datetime.now();
-            ProxyTestFactory.Accessor accessor = ProxyTestFactory.init();
-            ProxyTestFactory.Reader reader = (ProxyTestFactory.Reader) accessor.getReader();
+            ProxyTestFactory.DbHandler handler = ProxyTestFactory.initDbHandler();
+            ProxyTestFactory.DbRead reader = (ProxyTestFactory.DbRead) handler.getReader();
             reader.addRoot(getTestContact());
             reader.relateChild(getTestTask());
             reader.relateChild(getTestTask());

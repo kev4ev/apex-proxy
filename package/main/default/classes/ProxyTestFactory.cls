@@ -34,35 +34,35 @@ global inherited sharing class ProxyTestFactory {
         return fauxId;
     }
 
-    global static ProxyTestFactory.Accessor init() {
-        return init(null);
+    global static ProxyTestFactory.DbHandler initDbHandler() {
+        return initDbHandler(null);
     }
 
-    global static ProxyTestFactory.Accessor init(Writer writer) {
-        writer = writer ?? new Writer();
+    global static ProxyTestFactory.DbHandler initDbHandler(DbWrite writer) {
+        writer = writer ?? new DbWrite();
 
-        return new Accessor(writer);
+        return new DbHandler(writer);
     }
 
-    global class Accessor implements Interfaces.Accessor {
-        private Reader reader;
-        private Writer writer;
+    global class DbHandler implements Proxies.DbHandler {
+        private DbRead reader;
+        private DbWrite writer;
 
-        private Accessor(Writer writer) {
+        private DbHandler(DbWrite writer) {
             this.writer = writer;
-            this.reader = new Reader();
+            this.reader = new DbRead();
         }
 
-        global Reader getReader() {
+        global DbRead getReader() {
             return this.reader;
         }
 
-        global Writer getWriter() {
+        global DbWrite getWriter() {
             return this.writer;
         }
     }
 
-    global class Reader implements Interfaces.DbRead {
+    global class DbRead implements Proxies.DbRead {
         // meta
         private Map<Schema.SObjectType, List<Schema.ChildRelationship>> childrenRelMap = new Map<Schema.SObjectType, List<Schema.ChildRelationship>>();
         // records
@@ -77,10 +77,10 @@ global inherited sharing class ProxyTestFactory {
         private Integer readtimeReadStep = -1; // incremented upon first read()
         private String readtimeCondition;
         private Boolean freezeReadState = false;
-        /** @description A callback controller that will be invoked when Reader is used as a Test stub */
+        /** @description A callback controller that will be invoked when DbRead is used as a Test stub */
         private System.StubProvider controller;
         /** @constructor */
-        private Reader() {
+        private DbRead() {
         }
 
         /********************
@@ -112,11 +112,11 @@ global inherited sharing class ProxyTestFactory {
             return readList;
         }
 
-        global Reader loopReadStep(Integer step) {
+        global DbRead loopReadStep(Integer step) {
             this.freezeReadState = true;
             Integer max = readStepRecords.size() - 1;
             if (step < 0 || step > max) {
-                throw new AccessorException(
+                throw new FactoryException(
                     'Index out of bounds: ' +
                         step.toString() +
                         '; min is 0 and max size is ' +
@@ -128,9 +128,9 @@ global inherited sharing class ProxyTestFactory {
             return this;
         }
 
-        global Reader setReadCondition(String condition) {
+        global DbRead setReadCondition(String condition) {
             if (!this.readConditionalRecords.keySet().contains(condition)) {
-                throw new AccessorException(
+                throw new FactoryException(
                     'Condition ' +
                         condition +
                         ' was never initialized. Use addConditionalRead().'
@@ -141,13 +141,13 @@ global inherited sharing class ProxyTestFactory {
             return this;
         }
 
-        global Reader loopReadCondition(String condition) {
+        global DbRead loopReadCondition(String condition) {
             this.freezeReadState = true;
 
             return setReadCondition(condition);
         }
 
-        global Reader cancelLoop() {
+        global DbRead cancelLoop() {
             this.freezeReadState = false;
             this.readtimeCondition = null;
 
@@ -160,9 +160,9 @@ global inherited sharing class ProxyTestFactory {
 
         /**
          * Adds a read step that will return a list of records of size 0.
-         * @return {Reader} the reader instance for chaining
+         * @return {DbRead} the reader instance for chaining
          */
-        global Reader addEmptyReadStep() {
+        global DbRead addEmptyReadStep() {
             Integer addNew = getBuildtimeStepRecords().isEmpty() ? 1 : 2;
             for (Integer i = 0, k = addNew; i < k; i++) {
                 this.readStepRecords.add(new List<SObject>());
@@ -172,14 +172,14 @@ global inherited sharing class ProxyTestFactory {
         }
 
         /**
-         * Add a new read step to the Reader.
+         * Add a new read step to the DbRead.
          * @param {SObject} record the root record to initizize the new read step list
-         * @return {Reader} the reader instance for chaining
+         * @return {DbRead} the reader instance for chaining
          */
-        global Reader addReadStep(SObject record) {
+        global DbRead addReadStep(SObject record) {
             // ensure current list is not empty
             if (getBuildtimeStepRecords().isEmpty()) {
-                throw new AccessorException(
+                throw new FactoryException(
                     'Current read step record list is empty. ' +
                         'You may not add a new read step while the current one is empty. If you want to add ' +
                         'an empty read step, use addEmptyRead().'
@@ -192,13 +192,13 @@ global inherited sharing class ProxyTestFactory {
         }
 
         /**
-         * Add a new read step to the Reader.
+         * Add a new read step to the DbRead.
          * @param {SObject} record the root record to initizize the new read step list
          * @param {String} condition the condition that must be set for the record list to return; use
          * setReadCondition() to enable the condition
-         * @return {Reader} the reader instance for chaining
+         * @return {DbRead} the reader instance for chaining
          */
-        global Reader addConditionalRead(SObject record, String condition) {
+        global DbRead addConditionalRead(SObject record, String condition) {
             this.readConditionalRecords.put(condition, new List<SObject>());
             this.buildtimeCondition = condition;
 
@@ -218,9 +218,9 @@ global inherited sharing class ProxyTestFactory {
         /**
          * Add a record to the current read list.
          * @param {SObject} record the record to add
-         * @return {Reader} this instance for chaining
+         * @return {DbRead} this instance for chaining
          */
-        global Reader addRoot(SObject record) {
+        global DbRead addRoot(SObject record) {
             // set a faux id
             setFauxId(record);
             // get the list to append record
@@ -234,7 +234,7 @@ global inherited sharing class ProxyTestFactory {
                 currentBuildType != null &&
                 currentBuildType != recordSobjectType
             ) {
-                throw new AccessorException(
+                throw new FactoryException(
                     String.format(
                         'Current list\'s sobjectTYpe is "{0}" but record is of type "{1}.' +
                             '\nA list can only return records of the same sobjecttype.' +
@@ -259,11 +259,11 @@ global inherited sharing class ProxyTestFactory {
             return this;
         }
 
-        global Reader relateChild(SObject child) {
+        global DbRead relateChild(SObject child) {
             return relateChild(child, getCurrentBuildtimeRecords().size() - 1);
         }
 
-        global Reader relateChild(SObject child, Integer rootRecordPosition) {
+        global DbRead relateChild(SObject child, Integer rootRecordPosition) {
             // set faux id
             setFauxId(child);
             // find the relationship name
@@ -285,7 +285,7 @@ global inherited sharing class ProxyTestFactory {
             }
             // throw if invalid relationship
             if (String.isBlank(relationshipName)) {
-                throw new AccessorException(
+                throw new FactoryException(
                     childType.getDescribe().getName() +
                         ' is not a valid child of ' +
                         parentType.getDescribe().getName()
@@ -308,7 +308,7 @@ global inherited sharing class ProxyTestFactory {
             return this;
         }
 
-        global Reader relateParent(SObject parent, Schema.SObjectField field) {
+        global DbRead relateParent(SObject parent, Schema.SObjectField field) {
             return relateParent(
                 parent,
                 field,
@@ -316,7 +316,7 @@ global inherited sharing class ProxyTestFactory {
             );
         }
 
-        global Reader relateParent(
+        global DbRead relateParent(
             SObject parent,
             Schema.SObjectField field,
             Integer rootRecordPosition
@@ -380,7 +380,7 @@ global inherited sharing class ProxyTestFactory {
         }
     }
 
-    global virtual class Writer extends Interfaces.VirtualWriter {
+    global virtual class DbWrite extends Proxies.VirtualWriter {
         global virtual override List<Database.SaveResult> insertRecords(
             List<SObject> records
         ) {
@@ -428,16 +428,16 @@ global inherited sharing class ProxyTestFactory {
     }
 
     private class StubWrapper implements System.StubProvider {
-        private Reader reader;
-        private Writer writer;
+        private DbRead reader;
+        private DbWrite writer;
         private System.StubProvider controller;
 
-        public StubWrapper(Reader reader, System.StubProvider controller) {
+        public StubWrapper(DbRead reader, System.StubProvider controller) {
             this.reader = reader;
             this.controller = controller;
         }
 
-        public StubWrapper(Writer writer, System.StubProvider controller) {
+        public StubWrapper(DbWrite writer, System.StubProvider controller) {
             this.writer = writer;
             this.controller = controller;
         }
@@ -472,6 +472,6 @@ global inherited sharing class ProxyTestFactory {
         }
     }
 
-    private class AccessorException extends Exception {
+    private class FactoryException extends Exception {
     }
 }
