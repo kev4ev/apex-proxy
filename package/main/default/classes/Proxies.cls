@@ -42,8 +42,8 @@ global inherited sharing class Proxies {
      * troublesome to isolate in unit tests.
      */
     global interface TypeAccessor {
-        TypeAccessor call(String accessPath);
-        TypeAccessor call(String accessPath, List<Object> args);
+        Object call(String accessPath);
+        Object call(String accessPath, List<Object> args);
     }
 
     /**

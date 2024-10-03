@@ -44,6 +44,18 @@ global inherited sharing class ProxyTestFactory {
         return new DbHandler(writer);
     }
 
+    global static ProxyTestFactory.DbRead initDbRead(){
+        return new DbRead();
+    }
+
+    global static ProxyTestFactory.DbWrite initDbWrite(){
+        return new DbWrite();
+    }
+
+    global static Object initTypeAccessorStub(System.Type typeAccessorToMock, System.StubProvider controller){
+        return new TypeAccessor().asTestStub(typeAccessorToMock, controller);
+    }
+
     global class DbHandler implements Proxies.DbHandler {
         private DbRead reader;
         private DbWrite writer;
@@ -407,17 +419,28 @@ global inherited sharing class ProxyTestFactory {
         }
     }
 
+    global virtual class TypeAccessor extends StubPassthrough implements Proxies.TypeAccessor{
+
+        global virtual Object call(String accessPath){
+            throw new FactoryException('Caller must either implement the call() method or use as a test stub');
+        }
+
+        global virtual Object call(String accessPath, List<Object> args){
+            throw new FactoryException('Caller must either implement the call() method or use as a test stub');
+        }
+    }
+
     global abstract class StubPassthrough implements System.StubProvider {
         private System.StubProvider controller;
 
         global Object asTestStub(
-            System.Type concreteReaderType,
+            System.Type typeToMock,
             System.StubProvider controller
         ) {
             this.controller = controller;
 
             return Test.createStub(
-                concreteReaderType,
+                typeToMock,
                 this
             );
         }
