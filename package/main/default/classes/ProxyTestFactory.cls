@@ -34,16 +34,6 @@ global inherited sharing class ProxyTestFactory {
         return fauxId;
     }
 
-    global static ProxyTestFactory.DbHandler initDbHandler() {
-        return initDbHandler(null);
-    }
-
-    global static ProxyTestFactory.DbHandler initDbHandler(DbWrite writer) {
-        writer = writer ?? new DbWrite();
-
-        return new DbHandler(writer);
-    }
-
     global static ProxyTestFactory.DbRead initDbRead(){
         return new DbRead();
     }
@@ -54,24 +44,6 @@ global inherited sharing class ProxyTestFactory {
 
     global static Object initTypeAccessorStub(System.Type typeAccessorToMock, System.StubProvider controller){
         return new TypeAccessor().asTestStub(typeAccessorToMock, controller);
-    }
-
-    global class DbHandler implements Proxies.DbHandler {
-        private DbRead reader;
-        private DbWrite writer;
-
-        private DbHandler(DbWrite writer) {
-            this.writer = writer;
-            this.reader = new DbRead();
-        }
-
-        global DbRead getReader() {
-            return this.reader;
-        }
-
-        global DbWrite getWriter() {
-            return this.writer;
-        }
     }
 
     global class DbRead extends StubPassthrough implements Proxies.DbRead {

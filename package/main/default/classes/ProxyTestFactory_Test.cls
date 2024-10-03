@@ -32,7 +32,7 @@ public inherited sharing class ProxyTestFactory_Test implements Proxies.DbRead {
     private static void validateRead_basic() {
         TestDataSet data = new TestDataSet();
         // ensure casting and references work as expected
-        Contact c = (Contact) data.handler.getReader().read()[0];
+        Contact c = (Contact) data.reader.read()[0];
         Assert.areEqual(data.ct.LastName, c.LastName);
         Assert.areEqual(data.act.Name, c.Account.Name);
         Assert.areEqual(2, c.Tasks.size());
@@ -42,8 +42,7 @@ public inherited sharing class ProxyTestFactory_Test implements Proxies.DbRead {
 
     @isTest
     private static void when_mixedSobjecttype_expect_exception() {
-        ProxyTestFactory.DbRead reader = new TestDataSet()
-            .handler.getReader();
+        ProxyTestFactory.DbRead reader = new TestDataSet().reader;
         try {
             reader.addRoot(new Account(Name = 'Shoulda Been a Contact'));
         } catch (ProxyTestFactory.FactoryException fe) {
@@ -57,7 +56,7 @@ public inherited sharing class ProxyTestFactory_Test implements Proxies.DbRead {
     private static void validateReaderAsTestStub() {
         // init reader
         TestDataSet data = new TestDataSet();
-        ProxyTestFactory.DbRead reader = data.handler.getReader();
+        ProxyTestFactory.DbRead reader = data.reader;
         // mock a concrete implementation
         StubController controller = new StubController();
         ProxyTestFactory_Test stubbed = (ProxyTestFactory_Test) reader.asTestStub(
@@ -80,7 +79,7 @@ public inherited sharing class ProxyTestFactory_Test implements Proxies.DbRead {
         String CONDITION = 'conditionA';
         // init reader
         TestDataSet data = new TestDataSet();
-        ProxyTestFactory.DbRead reader = data.handler.getReader();
+        ProxyTestFactory.DbRead reader = data.reader;
         // mock a concrete implementation
         StubController controller = new StubController();
         ProxyTestFactory_Test stubbed = (ProxyTestFactory_Test) reader.asTestStub(
@@ -106,7 +105,7 @@ public inherited sharing class ProxyTestFactory_Test implements Proxies.DbRead {
     @isTest
     private static void when_loopedStep_expect_repeatsUntilCancelled() {
         TestDataSet data = new TestDataSet();
-        ProxyTestFactory.DbRead reader = data.handler.getReader();
+        ProxyTestFactory.DbRead reader = data.reader;
         reader.addReadStep(new Contact(LastName = 'secondStep'));
         // loop result step 0
         reader.loopReadStep(0);
@@ -126,7 +125,7 @@ public inherited sharing class ProxyTestFactory_Test implements Proxies.DbRead {
     private static void when_loopedCondition_expect_repeatsUntilCancelled() {
         String CONDITION = 'condition';
         TestDataSet data = new TestDataSet();
-        ProxyTestFactory.DbRead reader = data.handler.getReader();
+        ProxyTestFactory.DbRead reader = data.reader;
         reader.addReadStep(new Contact(LastName = 'secondStep'));
         reader.addConditionalRead(new Contact(LastName = CONDITION), CONDITION);
         reader.loopReadCondition(CONDITION);
@@ -142,14 +141,13 @@ public inherited sharing class ProxyTestFactory_Test implements Proxies.DbRead {
 
     @isTest
     private static void validateEmptyRead() {
-        ProxyTestFactory.DbRead reader = ProxyTestFactory.initDbHandler()
-            .getReader();
+        ProxyTestFactory.DbRead reader = ProxyTestFactory.initDbRead();
         reader.addEmptyReadStep();
         Assert.areEqual(0, reader.read().size());
     }
 
     private static Contact getFirstContact(TestDataSet tds) {
-        return ((Contact) tds.handler.getReader().read()[0]);
+        return ((Contact) tds.reader.read()[0]);
     }
 
     private static Integer randomLessThan(Integer ceiling) {
@@ -171,28 +169,28 @@ public inherited sharing class ProxyTestFactory_Test implements Proxies.DbRead {
     }
 
     private static ProxyTestFactory.DbRead getReader() {
-        return new TestDataSet().handler.getReader();
+        return new TestDataSet().reader;
     }
 
     private class TestDataSet {
         public Account act = getTestAccount();
         public Contact ct = getTestContact();
         public Task tsk = getTestTask();
-        public ProxyTestFactory.DbHandler handler {
+        public ProxyTestFactory.DbRead reader {
             get {
-                if (handler == null) {
-                    handler = ProxyTestFactory.initDbHandler();
-                    ProxyTestFactory.DbRead reader = (ProxyTestFactory.DbRead) handler.getReader();
+                if (reader == null) {
+                    reader = ProxyTestFactory.initDbRead();
                     reader.addRoot(ct);
                     reader.relateChild(tsk);
                     reader.relateChild(tsk);
                     reader.relateParent(act, Schema.Contact.AccountId);
                 }
 
-                return handler;
+                return reader;
             }
             private set;
         }
+        public ProxyTestFactory.DbWrite writer = ProxyTestFactory.initDbWrite();
 
         public TestDataSet() {
         }
@@ -277,8 +275,7 @@ public inherited sharing class ProxyTestFactory_Test implements Proxies.DbRead {
             dbMs = dbEnd.getTime().intValue() - dbStart.getTime().intValue();
             // mock benchmark
             mockStart = Datetime.now();
-            ProxyTestFactory.DbHandler handler = ProxyTestFactory.initDbHandler();
-            ProxyTestFactory.DbRead reader = (ProxyTestFactory.DbRead) handler.getReader();
+            ProxyTestFactory.DbRead reader = (ProxyTestFactory.DbRead) ProxyTestFactory.initDbRead();
             reader.addRoot(getTestContact());
             reader.relateChild(getTestTask());
             reader.relateChild(getTestTask());

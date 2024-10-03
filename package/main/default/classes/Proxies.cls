@@ -29,14 +29,6 @@ global inherited sharing class Proxies {
     }
 
     /**
-     * @description A convenience interface that composes DbRead and DbWrite proxies.
-     */
-    global interface DbHandler {
-        DbRead getReader();
-        DbWrite getWriter();
-    }
-
-    /**
      * @description Proxy to a method call or property of an apex type (class) defined by the
      * string that accesses it. Enables easy stubbing of class dependencies that are
      * troublesome to isolate in unit tests.
