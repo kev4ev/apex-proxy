@@ -62,7 +62,7 @@ global inherited sharing class ProxyTestFactory {
         }
     }
 
-    global class DbRead implements Proxies.DbRead {
+    global class DbRead extends StubPassthrough implements Proxies.DbRead {
         // meta
         private Map<Schema.SObjectType, List<Schema.ChildRelationship>> childrenRelMap = new Map<Schema.SObjectType, List<Schema.ChildRelationship>>();
         // records
@@ -354,16 +354,6 @@ global inherited sharing class ProxyTestFactory {
             // reset the record in the correct buildtime position
             records[rootRecordPosition] = newRoot;
         }
-
-        global Object asTestStub(
-            System.Type concreteReaderType,
-            System.StubProvider controller
-        ) {
-            return Test.createStub(
-                concreteReaderType,
-                new StubWrapper(this, controller)
-            );
-        }
     }
 
     private class ChildRecords {
@@ -380,66 +370,56 @@ global inherited sharing class ProxyTestFactory {
         }
     }
 
-    global virtual class DbWrite extends Proxies.VirtualWriter {
-        global virtual override List<Database.SaveResult> insertRecords(
+    global virtual class DbWrite extends StubPassthrough implements Proxies.DbWrite {
+        global virtual List<Database.SaveResult> insertRecords(
             List<SObject> records
         ) {
             // do nothing
             return null;
         }
 
-        global virtual override List<Database.SaveResult> updateRecords(
+        global virtual List<Database.SaveResult> updateRecords(
             List<SObject> records
         ) {
             // do nothing
             return null;
         }
 
-        global virtual override List<Database.UpsertResult> upsertRecords(
+        global virtual List<Database.UpsertResult> upsertRecords(
             List<SObject> records
         ) {
             // do nothing
             return null;
         }
 
-        global virtual override List<Database.DeleteResult> deleteRecords(
+        global virtual List<Database.DeleteResult> deleteRecords(
             List<SObject> records
         ) {
             // do nothing
             return null;
         }
 
-        global virtual override List<Database.UndeleteResult> undeleteRecords(
+        global virtual List<Database.UndeleteResult> undeleteRecords(
             List<SObject> records
         ) {
             // do nothing
             return null;
         }
+    }
+
+    global abstract class StubPassthrough implements System.StubProvider {
+        private System.StubProvider controller;
 
         global Object asTestStub(
             System.Type concreteReaderType,
             System.StubProvider controller
         ) {
+            this.controller = controller;
+
             return Test.createStub(
                 concreteReaderType,
-                new StubWrapper(this, controller)
+                this
             );
-        }
-    }
-
-    private class StubWrapper implements System.StubProvider {
-        private DbRead reader;
-        private DbWrite writer;
-        private System.StubProvider controller;
-
-        public StubWrapper(DbRead reader, System.StubProvider controller) {
-            this.reader = reader;
-            this.controller = controller;
-        }
-
-        public StubWrapper(DbWrite writer, System.StubProvider controller) {
-            this.writer = writer;
-            this.controller = controller;
         }
 
         public Object handleMethodCall(
@@ -450,17 +430,14 @@ global inherited sharing class ProxyTestFactory {
             List<String> listOfParamNames,
             List<Object> listOfArgs
         ) {
-            // append reader or writer as final item to listOfArgs
+            // always append self as final item to listOfArgs
             if (listOfArgs == null) {
                 listOfArgs = new List<Object>();
             }
-            if (this.reader != null) {
-                listOfArgs.add(this.reader);
-            } else if (this.writer != null) {
-                listOfArgs.add(this.writer);
-            }
 
-            // pass through to controller to return object
+            listOfArgs.add(this);
+
+            // pass through to controller for implementation and return of necessary object
             return controller.handleMethodCall(
                 stubbedObject,
                 stubbedMethodName,
