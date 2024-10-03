@@ -1,12 +1,15 @@
 {
   "packageDirectories": [
     {
-      "path": "force-app",
+      "path": "examples",
       "default": true
+    },
+    {
+      "path": "package"
     }
   ],
-  "name": "dml",
-  "namespace": "dml",
+  "name": "apex-proxy",
+  "namespace": "proxy",
   "sfdcLoginUrl": "https://login.salesforce.com",
   "sourceApiVersion": "61.0"
 }
