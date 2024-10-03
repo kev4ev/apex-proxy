@@ -1,19 +1,15 @@
 {
   "packageDirectories": [
     {
-      "path": "examples",
-      "default": true
+      "path": "examples"
     },
     {
-      "path": "package"
-    }
-  ],
-  "replacements": [
-    {
-      "glob": "package/main/default/classes/*.cls",
-      "stringToReplace": "ENV_PREFIX_",
-      "replaceWithEnv": "SF_ENV_PREFIX",
-      "allowUnsetEnvVariable": true
+      "default": true,
+      "path": "package",
+      "package": "Apex Proxy",
+      "versionName": "ver 0.1",
+      "versionNumber": "0.1.0.NEXT",
+      "definitionFile": "config/scratch-pkg-validation.json"
     }
   ],
   "name": "apex-proxy",

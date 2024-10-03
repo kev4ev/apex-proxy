@@ -1,0 +1,26 @@
+{
+  "orgName": "ApexProxy",
+  "description": "Used to validate the required features for subscriber orgs when creating a new package version",
+  "edition": "Enterprise",
+  "features": [
+    "API",
+    "CustomNotificationType",
+    "EnableSetPasswordInApi",
+    "Interaction",
+    "FieldAuditTrail",
+    "RecordTypes",
+    "StreamingAPI"
+  ],
+  "settings": {
+    "lightningExperienceSettings": {
+      "enableS1DesktopEnabled": true
+    },
+    "mobileSettings": {
+      "enableS1EncryptedStoragePref2": false
+    },
+    "userManagementSettings": {
+      "enableEnhancedPermsetMgmt": true,
+      "enableNewProfileUI": true
+    }
+  }
+}
