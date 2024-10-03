@@ -73,4 +73,9 @@ global inherited sharing class DataInterfaces {
             return Database.undelete(records);
         }
     }
+
+    global interface MethodProxy {
+        MethodProxy call(String classMethodReference);
+        MethodProxy call(String classMethodReference, List<Object> args);
+    }
 }
