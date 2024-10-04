@@ -140,6 +140,26 @@ public inherited sharing class ProxyTestFactory_Test implements Proxies.DbRead {
     }
 
     @isTest
+    private static void validateRepeatAndReplacement() {
+        ProxyTestFactory.DbRead reader = ProxyTestFactory.initDbRead();
+        String namePrefix = 'TestAcct';
+        Account a = new Account(Name = namePrefix);
+        List<Account> accounts = (List<Account>) reader.addRoot(a)
+            .repeat(
+                100,
+                new Map<Schema.SObjectField, String>{
+                    Schema.Account.Name => namePrefix + '{0}'
+                }
+            )
+            .read();
+        System.debug(JSON.serializePretty(accounts));
+        Assert.areEqual(100, accounts.size());
+        for (Integer i = 0, k = 100; i < 100; i++) {
+            Assert.areEqual(namePrefix + i.toString(), accounts[i].Name);
+        }
+    }
+
+    @isTest
     private static void validateEmptyRead() {
         ProxyTestFactory.DbRead reader = ProxyTestFactory.initDbRead();
         reader.addEmptyReadStep();

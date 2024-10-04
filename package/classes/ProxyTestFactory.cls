@@ -34,15 +34,18 @@ global inherited sharing class ProxyTestFactory {
         return fauxId;
     }
 
-    global static ProxyTestFactory.DbRead initDbRead(){
+    global static ProxyTestFactory.DbRead initDbRead() {
         return new DbRead();
     }
 
-    global static ProxyTestFactory.DbWrite initDbWrite(){
+    global static ProxyTestFactory.DbWrite initDbWrite() {
         return new DbWrite();
     }
 
-    global static Object initTypeAccessorStub(System.Type typeAccessorToMock, System.StubProvider controller){
+    global static Object initTypeAccessorStub(
+        System.Type typeAccessorToMock,
+        System.StubProvider controller
+    ) {
         return new TypeAccessor().asTestStub(typeAccessorToMock, controller);
     }
 
@@ -243,6 +246,61 @@ global inherited sharing class ProxyTestFactory {
             return this;
         }
 
+        /**
+         * Appends the current record to the read list the given number of times INCLUDING the current record.
+         * @param {Integer} number of times to repeat the current record
+         * @return {DbRead} this instance for chaining
+         */
+        global DbRead repeat(Integer repeatCount) {
+            return repeat(repeatCount, null);
+        }
+
+        /**
+         * Appends the current record to the read list the given number of times INCLUDING the current record,
+         * replacing the strings provided.
+         * @param {Integer} number of times to repeat the current record
+         * @param {Map<Schema.SObjectField, String>} a map of fields to the strings that will be written to each
+         * record. Strings will have the following sequences replaced:
+         *  - {0}: the repeated item number, starting from 1 (the original record should be treated as 0)
+         * @return {DbRead} this instance for chaining
+         */
+        global DbRead repeat(
+            Integer repeatCount,
+            Map<Schema.SObjectField, String> replacements
+        ) {
+            List<SObject> records = getBuildtimeStepRecords();
+            SObject curr = records.get(records.size() - 1);
+            for (Integer i = 0; i < repeatCount; i++) {
+                // first iteration the target is curr itself so that repeat count is inclusive of the original
+                SObject target = i == 0 ? curr : curr.clone(false, true);
+                if (replacements != null && replacements.size() > 0) {
+                    List<Object> replaceWith = new List<Object>{ i };
+                    for (Schema.SObjectField sof : replacements.keySet()) {
+                        replaceAndWrite(
+                            target,
+                            sof,
+                            replacements.get(sof),
+                            replaceWith
+                        );
+                    }
+                }
+                if (i > 0) {
+                    addRoot(target);
+                }
+            }
+
+            return this;
+        }
+
+        private void replaceAndWrite(
+            SObject record,
+            Schema.SObjectField field,
+            String replacee,
+            List<Object> replacements
+        ) {
+            record.put(field, String.format(replacee, replacements));
+        }
+
         global DbRead relateChild(SObject child) {
             return relateChild(child, getCurrentBuildtimeRecords().size() - 1);
         }
@@ -391,14 +449,17 @@ global inherited sharing class ProxyTestFactory {
         }
     }
 
-    global virtual class TypeAccessor extends StubPassthrough implements Proxies.TypeAccessor{
-
-        global virtual Object call(String accessPath){
-            throw new FactoryException('Caller must either implement the call() method or use as a test stub');
+    global virtual class TypeAccessor extends StubPassthrough implements Proxies.TypeAccessor {
+        global virtual Object call(String accessPath) {
+            throw new FactoryException(
+                'Caller must either implement the call() method or use as a test stub'
+            );
         }
 
-        global virtual Object call(String accessPath, List<Object> args){
-            throw new FactoryException('Caller must either implement the call() method or use as a test stub');
+        global virtual Object call(String accessPath, List<Object> args) {
+            throw new FactoryException(
+                'Caller must either implement the call() method or use as a test stub'
+            );
         }
     }
 
@@ -411,10 +472,7 @@ global inherited sharing class ProxyTestFactory {
         ) {
             this.controller = controller;
 
-            return Test.createStub(
-                typeToMock,
-                this
-            );
+            return Test.createStub(typeToMock, this);
         }
 
         public Object handleMethodCall(
