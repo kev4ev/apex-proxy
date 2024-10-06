@@ -44,12 +44,13 @@ global inherited sharing class ProxyTestFactory {
 
     global static Object initTypeAccessorStub(
         System.Type typeAccessorToMock,
-        System.StubProvider controller
+        StubProviderCallback controller
     ) {
-        return new TypeAccessor().asTestStub(typeAccessorToMock, controller);
+        return new TypeAccessor()
+            .createTestStub(typeAccessorToMock, controller);
     }
 
-    global class DbRead extends Stubbable implements Proxies.DbRead {
+    global class DbRead extends Proxy implements Proxies.DbRead {
         global Boolean testLimits = false;
         // meta
         private Map<Schema.SObjectType, List<Schema.ChildRelationship>> childrenRelMap = new Map<Schema.SObjectType, List<Schema.ChildRelationship>>();
@@ -77,7 +78,7 @@ global inherited sharing class ProxyTestFactory {
 
         global List<SObject> read() {
             if (this.testLimits == true) {
-                [SELECT COUNT() FROM Account LIMIT 1];
+                Integer cnt = [SELECT COUNT() FROM Account LIMIT 1];
             }
             List<SObject> readList;
             // read either from current conditional list or step list
@@ -427,7 +428,7 @@ global inherited sharing class ProxyTestFactory {
         }
     }
 
-    global virtual class DbWrite extends Stubbable implements Proxies.DbWrite {
+    global virtual class DbWrite extends Proxy implements Proxies.DbWrite {
         global Boolean testLimits = false;
 
         global virtual List<Database.SaveResult> insertRecords(
@@ -475,7 +476,7 @@ global inherited sharing class ProxyTestFactory {
          * such that limits testing can be simulated. Note that total dml statements can be
          * simulated but dml rows cannot.
          */
-        global DbRead testLimits() {
+        global DbWrite testLimits() {
             this.testLimits = true;
 
             return this;
@@ -488,7 +489,7 @@ global inherited sharing class ProxyTestFactory {
         }
     }
 
-    global virtual class TypeAccessor extends Stubbable implements Proxies.TypeAccessor {
+    global virtual class TypeAccessor extends Proxy implements Proxies.TypeAccessor {
         global virtual Object call(String accessPath) {
             throw new FactoryException(
                 'Caller must either implement the call() method or use as a test stub'
@@ -502,7 +503,7 @@ global inherited sharing class ProxyTestFactory {
         }
     }
 
-    private abstract class Stubbable {
+    global abstract class Proxy {
         global System.StubProvider asStub(StubProviderCallback controller) {
             return new StubPassthrough(controller, this);
         }
@@ -532,10 +533,10 @@ global inherited sharing class ProxyTestFactory {
 
     private class StubPassthrough implements System.StubProvider {
         private StubProviderCallback controller;
-        private ProxyStub originatingProxy;
+        private Proxy originatingProxy;
         public StubPassthrough(
             StubProviderCallback controller,
-            ProxyStub originatingProxy
+            Proxy originatingProxy
         ) {
             this.controller = controller;
             this.originatingProxy = originatingProxy;
