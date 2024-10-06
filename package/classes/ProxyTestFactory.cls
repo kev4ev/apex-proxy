@@ -44,7 +44,7 @@ global inherited sharing class ProxyTestFactory {
 
     global static Object initTypeAccessorStub(
         System.Type typeAccessorToMock,
-        StubProviderCallback controller
+        StubCallbackController controller
     ) {
         return new TypeAccessor()
             .createTestStub(typeAccessorToMock, controller);
@@ -504,13 +504,15 @@ global inherited sharing class ProxyTestFactory {
     }
 
     global abstract class Proxy {
-        global System.StubProvider asStub(StubProviderCallback controller) {
+        global System.StubProvider asCallbackStub(
+            StubCallbackController controller
+        ) {
             return new StubPassthrough(controller, this);
         }
 
         global Object createTestStub(
             System.Type typeToMock,
-            StubProviderCallback controller
+            StubCallbackController controller
         ) {
             return Test.createStub(
                 typeToMock,
@@ -519,7 +521,7 @@ global inherited sharing class ProxyTestFactory {
         }
     }
 
-    global interface StubProviderCallback {
+    global interface StubCallbackController {
         Object handleMethodCall(
             Object stubbedObject,
             String stubbedMethodName,
@@ -532,10 +534,10 @@ global inherited sharing class ProxyTestFactory {
     }
 
     private class StubPassthrough implements System.StubProvider {
-        private StubProviderCallback controller;
+        private StubCallbackController controller;
         private Proxy originatingProxy;
         public StubPassthrough(
-            StubProviderCallback controller,
+            StubCallbackController controller,
             Proxy originatingProxy
         ) {
             this.controller = controller;
