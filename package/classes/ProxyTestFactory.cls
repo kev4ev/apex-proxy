@@ -49,7 +49,8 @@ global inherited sharing class ProxyTestFactory {
         return new TypeAccessor().asTestStub(typeAccessorToMock, controller);
     }
 
-    global class DbRead extends StubPassthrough implements Proxies.DbRead {
+    global class DbRead extends Stubbable implements Proxies.DbRead {
+        global Boolean testLimits = false;
         // meta
         private Map<Schema.SObjectType, List<Schema.ChildRelationship>> childrenRelMap = new Map<Schema.SObjectType, List<Schema.ChildRelationship>>();
         // records
@@ -75,6 +76,9 @@ global inherited sharing class ProxyTestFactory {
          ********************/
 
         global List<SObject> read() {
+            if (this.testLimits == true) {
+                [SELECT COUNT() FROM Account LIMIT 1];
+            }
             List<SObject> readList;
             // read either from current conditional list or step list
             if (String.isNotBlank(this.readtimeCondition)) {
@@ -376,6 +380,17 @@ global inherited sharing class ProxyTestFactory {
             return this;
         }
 
+        /**
+         * When invoked, a minimal overhead query will be executed for each call to read() such
+         * that limits testing can be simulated. Note that otal queries can be simulated but rows
+         * retrieved cannot.
+         */
+        global DbRead testLimits() {
+            this.testLimits = true;
+
+            return this;
+        }
+
         private void setRootFieldDynamic(
             Integer rootRecordPosition,
             String fieldKey,
@@ -412,10 +427,13 @@ global inherited sharing class ProxyTestFactory {
         }
     }
 
-    global virtual class DbWrite extends StubPassthrough implements Proxies.DbWrite {
+    global virtual class DbWrite extends Stubbable implements Proxies.DbWrite {
+        global Boolean testLimits = false;
+
         global virtual List<Database.SaveResult> insertRecords(
             List<SObject> records
         ) {
+            handleLimits();
             // do nothing
             return null;
         }
@@ -423,6 +441,7 @@ global inherited sharing class ProxyTestFactory {
         global virtual List<Database.SaveResult> updateRecords(
             List<SObject> records
         ) {
+            handleLimits();
             // do nothing
             return null;
         }
@@ -430,6 +449,7 @@ global inherited sharing class ProxyTestFactory {
         global virtual List<Database.UpsertResult> upsertRecords(
             List<SObject> records
         ) {
+            handleLimits();
             // do nothing
             return null;
         }
@@ -437,6 +457,7 @@ global inherited sharing class ProxyTestFactory {
         global virtual List<Database.DeleteResult> deleteRecords(
             List<SObject> records
         ) {
+            handleLimits();
             // do nothing
             return null;
         }
@@ -444,12 +465,30 @@ global inherited sharing class ProxyTestFactory {
         global virtual List<Database.UndeleteResult> undeleteRecords(
             List<SObject> records
         ) {
+            handleLimits();
             // do nothing
             return null;
         }
+
+        /**
+         * When invoked, a savepoint will be set for each call to a dml method (which counts as a dml statement),
+         * such that limits testing can be simulated. Note that total dml statements can be
+         * simulated but dml rows cannot.
+         */
+        global DbRead testLimits() {
+            this.testLimits = true;
+
+            return this;
+        }
+
+        private void handleLimits() {
+            if (this.testLimits == true) {
+                Database.setSavepoint();
+            }
+        }
     }
 
-    global virtual class TypeAccessor extends StubPassthrough implements Proxies.TypeAccessor {
+    global virtual class TypeAccessor extends Stubbable implements Proxies.TypeAccessor {
         global virtual Object call(String accessPath) {
             throw new FactoryException(
                 'Caller must either implement the call() method or use as a test stub'
@@ -463,16 +502,43 @@ global inherited sharing class ProxyTestFactory {
         }
     }
 
-    global abstract class StubPassthrough implements System.StubProvider {
-        private System.StubProvider controller;
+    private abstract class Stubbable {
+        global System.StubProvider asStub(StubProviderCallback controller) {
+            return new StubPassthrough(controller, this);
+        }
 
-        global Object asTestStub(
+        global Object createTestStub(
             System.Type typeToMock,
-            System.StubProvider controller
+            StubProviderCallback controller
+        ) {
+            return Test.createStub(
+                typeToMock,
+                new StubPassthrough(controller, this)
+            );
+        }
+    }
+
+    global interface StubProviderCallback {
+        Object handleMethodCall(
+            Object stubbedObject,
+            String stubbedMethodName,
+            System.Type returnType,
+            List<System.Type> listOfParamTypes,
+            List<String> listOfParamNames,
+            List<Object> listOfArgs,
+            Object callingProxy
+        );
+    }
+
+    private class StubPassthrough implements System.StubProvider {
+        private StubProviderCallback controller;
+        private ProxyStub originatingProxy;
+        public StubPassthrough(
+            StubProviderCallback controller,
+            ProxyStub originatingProxy
         ) {
             this.controller = controller;
-
-            return Test.createStub(typeToMock, this);
+            this.originatingProxy = originatingProxy;
         }
 
         public Object handleMethodCall(
@@ -483,21 +549,15 @@ global inherited sharing class ProxyTestFactory {
             List<String> listOfParamNames,
             List<Object> listOfArgs
         ) {
-            // always append self as final item to listOfArgs
-            if (listOfArgs == null) {
-                listOfArgs = new List<Object>();
-            }
-
-            listOfArgs.add(this);
-
             // pass through to controller for implementation and return of necessary object
-            return controller.handleMethodCall(
+            return this.controller.handleMethodCall(
                 stubbedObject,
                 stubbedMethodName,
                 returnType,
                 listOfParamTypes,
                 listOfParamNames,
-                listOfArgs
+                listOfArgs,
+                this.originatingProxy
             );
         }
     }
