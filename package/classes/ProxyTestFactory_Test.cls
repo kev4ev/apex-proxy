@@ -59,7 +59,7 @@ public inherited sharing class ProxyTestFactory_Test implements Proxies.DbRead {
         ProxyTestFactory.DbRead reader = data.reader;
         // mock a concrete implementation
         StubController controller = new StubController();
-        ProxyTestFactory_Test stubbed = (ProxyTestFactory_Test) reader.asTestStub(
+        ProxyTestFactory_Test stubbed = (ProxyTestFactory_Test) reader.createTestStub(
             ProxyTestFactory_Test.class,
             controller
         );
@@ -82,7 +82,7 @@ public inherited sharing class ProxyTestFactory_Test implements Proxies.DbRead {
         ProxyTestFactory.DbRead reader = data.reader;
         // mock a concrete implementation
         StubController controller = new StubController();
-        ProxyTestFactory_Test stubbed = (ProxyTestFactory_Test) reader.asTestStub(
+        ProxyTestFactory_Test stubbed = (ProxyTestFactory_Test) reader.createTestStub(
             ProxyTestFactory_Test.class,
             controller
         );
@@ -226,7 +226,7 @@ public inherited sharing class ProxyTestFactory_Test implements Proxies.DbRead {
         return new Task(Subject = 'Test Task');
     }
 
-    private class StubController implements System.StubProvider {
+    private class StubController implements ProxyTestFactory.StubCallbackController {
         public Boolean called = false;
         // track the set condition
         private String condition;
@@ -238,17 +238,16 @@ public inherited sharing class ProxyTestFactory_Test implements Proxies.DbRead {
             System.Type returnType,
             List<System.Type> listOfParamTypes,
             List<String> listOfParamNames,
-            List<Object> listOfArgs
+            List<Object> listOfArgs,
+            ProxyTestFactory.Proxy originatingProxy
         ) {
             this.called = true;
             if (
                 stubbedMethodName.equalsIgnoreCase('read') &&
                 (listOfParamNames == null || listOfParamNames.isEmpty())
             ) {
-                // last arg will always be the Reader
-                ProxyTestFactory.DbRead reader = (ProxyTestFactory.DbRead) listOfArgs.get(
-                    listOfArgs.size() - 1
-                );
+                // cast to concrete Proxy type
+                ProxyTestFactory.DbRead reader = (ProxyTestFactory.DbRead) originatingProxy;
 
                 // check for conditional
                 if (String.isNotBlank(this.condition)) {
