@@ -166,16 +166,6 @@ public inherited sharing class ProxyTestFactory_Test implements Proxies.DbRead {
         Assert.areEqual(0, reader.read().size());
     }
 
-    private static Contact getFirstContact(TestDataSet tds) {
-        return ((Contact) tds.reader.read()[0]);
-    }
-
-    private static Integer randomLessThan(Integer ceiling) {
-        Integer rand = (Math.random() * ceiling).round().intValue();
-
-        return rand > 0 ? rand : 1;
-    }
-
     @isTest
     private static void validateVirtualDataWriter() {
         // init empty list for line coverage
@@ -186,6 +176,37 @@ public inherited sharing class ProxyTestFactory_Test implements Proxies.DbRead {
         writer.updateRecords(records);
         writer.deleteRecords(records);
         writer.undeleteRecords(records);
+    }
+
+    @isTest
+    private static void when_testLimitsEnabled_expect_limitsTracked() {
+        ProxyTestFactory.DbRead reader = ProxyTestFactory.initDbRead();
+        ProxyTestFactory.DbWrite writer = ProxyTestFactory.initDbWrite();
+        // test reader up to limits
+        reader.testLimits();
+        Integer soqlLimit = Limits.getLimitQueries();
+        for (Integer i = 0; i < soqlLimit; i++) {
+            reader.read();
+            writer.insertRecords(new List<Account>());
+        }
+        Assert.areEqual(soqlLimit, Limits.getQueries());
+        // test reader for max dml statements
+        Integer dmlLimit = Limits.getLimitDmlStatements();
+        writer.testLimits();
+        for (Integer i = 0; i < dmlLimit; i++) {
+            writer.insertRecords(new List<Account>());
+        }
+        Assert.areEqual(dmlLimit, Limits.getDmlStatements());
+    }
+
+    private static Contact getFirstContact(TestDataSet tds) {
+        return ((Contact) tds.reader.read()[0]);
+    }
+
+    private static Integer randomLessThan(Integer ceiling) {
+        Integer rand = (Math.random() * ceiling).round().intValue();
+
+        return rand > 0 ? rand : 1;
     }
 
     private static ProxyTestFactory.DbRead getReader() {
