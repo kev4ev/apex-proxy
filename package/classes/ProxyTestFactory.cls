@@ -74,80 +74,6 @@ global inherited sharing class ProxyTestFactory {
         }
 
         /********************
-         * READ-TIME METHODS
-         ********************/
-
-        global List<SObject> read() {
-            if (this.testLimits == true) {
-                Integer cnt = [SELECT COUNT() FROM Account LIMIT 1];
-            }
-            List<SObject> readList;
-            // read either from current conditional list or step list
-            if (String.isNotBlank(this.readtimeCondition)) {
-                readList = this.readConditionalRecords.get(
-                    this.readtimeCondition
-                );
-                if (!freezeReadState) {
-                    this.readtimeCondition = null;
-                }
-            } else {
-                // increment the read list
-                if (!freezeReadState) {
-                    this.readtimeReadStep += 1;
-                }
-                // return the list or null if read steps exhausted
-                readList = readtimeReadStep < this.readStepRecords.size()
-                    ? this.readStepRecords.get(this.readtimeReadStep)
-                    : null;
-            }
-
-            // return the results
-            return readList;
-        }
-
-        global DbRead loopReadStep(Integer step) {
-            this.freezeReadState = true;
-            Integer max = readStepRecords.size() - 1;
-            if (step < 0 || step > max) {
-                throw new FactoryException(
-                    'Index out of bounds: ' +
-                        step.toString() +
-                        '; min is 0 and max size is ' +
-                        max
-                );
-            }
-            this.readtimeReadStep = step;
-
-            return this;
-        }
-
-        global DbRead setReadCondition(String condition) {
-            if (!this.readConditionalRecords.keySet().contains(condition)) {
-                throw new FactoryException(
-                    'Condition ' +
-                        condition +
-                        ' was never initialized. Use addConditionalRead().'
-                );
-            }
-            this.readtimeCondition = condition;
-
-            return this;
-        }
-
-        global DbRead loopReadCondition(String condition) {
-            this.freezeReadState = true;
-
-            return setReadCondition(condition);
-        }
-
-        global DbRead cancelLoop() {
-            this.freezeReadState = false;
-            this.readtimeCondition = null;
-
-            return this;
-        }
-
-        /********************
          * BUILD-TIME METHODS
          ********************/
 
@@ -170,16 +96,10 @@ global inherited sharing class ProxyTestFactory {
          * @return {DbRead} the reader instance for chaining
          */
         global DbRead addReadStep(SObject record) {
-            // ensure current list is not empty
-            if (getBuildtimeStepRecords().isEmpty()) {
-                throw new FactoryException(
-                    'Current read step record list is empty. ' +
-                        'You may not add a new read step while the current one is empty. If you want to add ' +
-                        'an empty read step, use addEmptyRead().'
-                );
+            if (!getBuildtimeStepRecords().isEmpty()) {
+                this.readStepRecords.add(new List<SObject>());
+                this.buildtimeCondition = null;
             }
-            this.readStepRecords.add(new List<SObject>());
-            this.buildtimeCondition = null;
 
             return record == null ? this : addRoot(record);
         }
@@ -412,6 +332,80 @@ global inherited sharing class ProxyTestFactory {
             );
             // reset the record in the correct buildtime position
             records[rootRecordPosition] = newRoot;
+        }
+
+        /********************
+         * READ-TIME METHODS
+         ********************/
+
+        global List<SObject> read() {
+            if (this.testLimits == true) {
+                Integer cnt = [SELECT COUNT() FROM Account LIMIT 1];
+            }
+            List<SObject> readList;
+            // read either from current conditional list or step list
+            if (String.isNotBlank(this.readtimeCondition)) {
+                readList = this.readConditionalRecords.get(
+                    this.readtimeCondition
+                );
+                if (!freezeReadState) {
+                    this.readtimeCondition = null;
+                }
+            } else {
+                // increment the read list
+                if (!freezeReadState) {
+                    this.readtimeReadStep += 1;
+                }
+                // return the list or null if read steps exhausted
+                readList = readtimeReadStep < this.readStepRecords.size()
+                    ? this.readStepRecords.get(this.readtimeReadStep)
+                    : null;
+            }
+
+            // return the results
+            return readList;
+        }
+
+        global DbRead loopReadStep(Integer step) {
+            this.freezeReadState = true;
+            Integer max = readStepRecords.size() - 1;
+            if (step < 0 || step > max) {
+                throw new FactoryException(
+                    'Index out of bounds: ' +
+                        step.toString() +
+                        '; min is 0 and max size is ' +
+                        max
+                );
+            }
+            this.readtimeReadStep = step;
+
+            return this;
+        }
+
+        global DbRead setReadCondition(String condition) {
+            if (!this.readConditionalRecords.keySet().contains(condition)) {
+                throw new FactoryException(
+                    'Condition ' +
+                        condition +
+                        ' was never initialized. Use addConditionalRead().'
+                );
+            }
+            this.readtimeCondition = condition;
+
+            return this;
+        }
+
+        global DbRead loopReadCondition(String condition) {
+            this.freezeReadState = true;
+
+            return setReadCondition(condition);
+        }
+
+        global DbRead cancelLoop() {
+            this.freezeReadState = false;
+            this.readtimeCondition = null;
+
+            return this;
         }
     }
 

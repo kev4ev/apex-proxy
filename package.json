@@ -17,7 +17,9 @@
     "prettier": "prettier --write \"**/*.{cls,cmp,component,css,html,js,json,md,page,trigger,xml,yaml,yml}\"",
     "prettier:verify": "prettier --check \"**/*.{cls,cmp,component,css,html,js,json,md,page,trigger,xml,yaml,yml}\"",
     "postinstall": "husky install",
-    "precommit": "lint-staged"
+    "precommit": "lint-staged",
+    "sf:org:init": "sf org create scratch -d $SFDUR -a $SFALIAS -d -w 15 -f config/scratch-pkg-validation.json",
+    "sf:deploy": "sf project deploy start -w 15 -d package"
   },
   "devDependencies": {
     "@cparra/apexdocs": "^3.3.2",
