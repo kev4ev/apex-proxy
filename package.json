@@ -1,8 +1,11 @@
 {
   "name": "salesforce-app",
   "private": true,
+  "bin": {
+    "copy": "./scripts/copy.js"
+  },
   "version": "1.0.0",
-  "description": "Salesforce App",
+  "description": "Proxy pattern for Salesforce Apex",
   "scripts": {
     "lint": "eslint **/{aura,lwc}/**/*.js",
     "test": "npm run test:unit",
@@ -16,6 +19,7 @@
     "precommit": "lint-staged"
   },
   "devDependencies": {
+    "@cparra/apexdocs": "^3.3.2",
     "@lwc/eslint-plugin-lwc": "^1.1.2",
     "@prettier/plugin-xml": "^3.2.2",
     "@salesforce/eslint-config-lwc": "^3.2.3",
