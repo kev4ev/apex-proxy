@@ -530,7 +530,7 @@ global inherited sharing class ProxyTestFactory {
             List<System.Type> listOfParamTypes,
             List<String> listOfParamNames,
             List<Object> listOfArgs,
-            Proxy callingProxy
+            ProxyTestFactory.Proxy callingProxy
         );
     }
 
