@@ -1,3 +1,0 @@
-#! env bash
-
-echo 'hi';
