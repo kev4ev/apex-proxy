@@ -1,5 +1,6 @@
 /**
  * @description Provides a pseudo-namespaced collection of the extendable types in the library.
+ * Provided under the MIT License, Copyright 2024 kev4ev/apex-proxy.
  */
 global inherited sharing class Proxies {
     @testVisible
