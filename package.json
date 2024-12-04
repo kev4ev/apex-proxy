@@ -1,7 +1,7 @@
 {
   "name": "salesforce-app",
   "private": true,
-  "bin": "./scripts/copy.sh",
+  "bin": "./scripts/copy.js",
   "version": "1.0.0",
   "description": "Proxy pattern for Salesforce Apex",
   "scripts": {
