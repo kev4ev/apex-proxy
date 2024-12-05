@@ -1,7 +1,7 @@
 /**
  * @description Test class for ProxyTestFactory functionality.
  * Implements Proxies.DbRead itself to provide coverage of stub functionalities.
- * Provided under the MIT License, Copyright 2024 kev4ev/apex-proxy.
+ * Provided under the MIT License github.com/kev4ev/apex-proxy
  */
 @isTest
 public inherited sharing class ProxyTestFactory_Test implements Proxies.DbRead {

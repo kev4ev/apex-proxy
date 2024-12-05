@@ -7,7 +7,7 @@
  *
  * All 3 proxies also include an asTestStub() method that accepts a StubProvider instance
  * that will receive passthrough control during method invocation.
- * Provided under the MIT License, Copyright 2024 kev4ev/apex-proxy.
+ * Provided under the MIT License github.com/kev4ev/apex-proxy
  */
 global inherited sharing class ProxyTestFactory {
     private static Map<Schema.SObjectType, Integer> recordIdCounter = new Map<Schema.SObjectType, Integer>();
