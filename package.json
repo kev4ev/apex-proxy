@@ -19,7 +19,7 @@
     "postinstall": "husky install",
     "precommit": "lint-staged",
     "sf:org:init": "sf org create scratch -y $SFDUR -a $SFALIAS -d -w 15 -f config/scratch-pkg-validation.json",
-    "sf:deploy": "sf project deploy start -w 15 -d package"
+    "sf:deploy": "sf project deploy start -w 15 -d lib"
   },
   "devDependencies": {
     "@cparra/apexdocs": "^3.3.2",
