@@ -1,9 +1,7 @@
 {
   "name": "apex-proxy",
   "private": true,
-  "bin": {
-    "copy": "./scripts/copy.js"
-  },
+  "bin": "./scripts/copy.js",
   "version": "1.1.0",
   "description": "Proxy pattern for Salesforce Apex",
   "license": "MIT",
