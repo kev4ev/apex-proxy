@@ -4,28 +4,19 @@
       "path": "examples"
     },
     {
-      "versionName": "ver 0.1",
-      "versionNumber": "0.1.0.NEXT",
-      "path": "package",
-      "default": false,
-      "package": "Apex Proxy",
-      "versionDescription": ""
-    },
-    {
-      "versionName": "ver 0.1",
-      "versionNumber": "0.1.0.NEXT",
-      "path": "package",
+      "versionName": "ver 0.61",
+      "versionNumber": "0.61.0.NEXT",
+      "path": "lib",
       "default": true,
       "package": "apex-proxy",
       "versionDescription": ""
     }
   ],
   "name": "apex-proxy",
-  "namespace": "proxy",
+  "namespace": "mach",
   "sfdcLoginUrl": "https://login.salesforce.com",
   "sourceApiVersion": "61.0",
   "packageAliases": {
-    "apex-proxy": "0HoKY000000CaRb0AK",
-    "apex-proxy@0.1.0-1": "04tKY000000cBRPYA2"
+    "apex-proxy": "0HoKY000000CaRb0AK"
   }
 }

@@ -2,26 +2,26 @@
  * @description Provides a pseudo-namespaced collection of the extendable types in the library.
  * Provided under the MIT License github.com/kev4ev/apex-proxy
  */
-global inherited sharing class Proxies {
+global inherited sharing class Proxy {
     @testVisible
     /**
      * @description TestVisible as constructor requires coverage
      * @constructor
      */
-    private Proxies() {
+    private Proxy() {
     }
 
     /**
      * @description A simple interface whose sole job is reading records from the database.
      */
-    global interface DbRead {
+    global interface Reader {
         List<SObject> read();
     }
 
     /**
      * @description A simple interface whose sole job is writing records to the database.
      */
-    global interface DbWrite {
+    global interface Writer {
         List<Database.SaveResult> insertRecords(List<SObject> records);
         List<Database.SaveResult> updateRecords(List<SObject> records);
         List<Database.UpsertResult> upsertRecords(List<SObject> records);
@@ -40,11 +40,11 @@ global inherited sharing class Proxies {
     }
 
     /**
-     * @description A convenience implementation of DbWrite that is just a veneer over Database class methods.
+     * @description A convenience implementation of Writer that is just a veneer over Database class methods.
      * Default implementation is suitable for most use cases but all methods are virtual so as to be overridable
      * by an extending class.
      */
-    global inherited sharing virtual class VirtualWriter implements DbWrite {
+    global inherited sharing virtual class VirtualWriter implements Writer {
         global virtual List<Database.SaveResult> insertRecords(
             List<SObject> records
         ) {

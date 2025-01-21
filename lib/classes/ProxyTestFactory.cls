@@ -1,14 +1,14 @@
-@isTest
 /**
- * @description A factory class for unit test proxies. Includes:
- *   1. DbRead proxy with a declarative builder api,
- *   2. DbWrite proxy with default implementation that does not hit the database,
+ * @description A factory class for unit test Proxy. Includes:
+ *   1. Reader proxy with a declarative builder api,
+ *   2. Writer proxy with default implementation that does not hit the database,
  *   3. TypeAccessor proxy
  *
- * All 3 proxies also include an asTestStub() method that accepts a StubProvider instance
+ * All 3 Proxy also include an asTestStub() method that accepts a StubProvider instance
  * that will receive passthrough control during method invocation.
  * Provided under the MIT License github.com/kev4ev/apex-proxy
  */
+@isTest
 global inherited sharing class ProxyTestFactory {
     private static Map<Schema.SObjectType, Integer> recordIdCounter = new Map<Schema.SObjectType, Integer>();
 
@@ -35,12 +35,12 @@ global inherited sharing class ProxyTestFactory {
         return fauxId;
     }
 
-    global static ProxyTestFactory.DbRead initDbRead() {
-        return new DbRead();
+    global static ProxyTestFactory.Reader initReader() {
+        return new Reader();
     }
 
-    global static ProxyTestFactory.DbWrite initDbWrite() {
-        return new DbWrite();
+    global static ProxyTestFactory.Writer initWriter() {
+        return new Writer();
     }
 
     global static Object initTypeAccessorStub(
@@ -51,7 +51,7 @@ global inherited sharing class ProxyTestFactory {
             .createTestStub(typeAccessorToMock, controller);
     }
 
-    global class DbRead extends Proxy implements Proxies.DbRead {
+    global class Reader extends Proxy implements Proxy.Reader {
         global Boolean testLimits = false;
         // meta
         private Map<Schema.SObjectType, List<Schema.ChildRelationship>> childrenRelMap = new Map<Schema.SObjectType, List<Schema.ChildRelationship>>();
@@ -67,10 +67,10 @@ global inherited sharing class ProxyTestFactory {
         private Integer readtimeReadStep = -1; // incremented upon first read()
         private String readtimeCondition;
         private Boolean freezeReadState = false;
-        /** @description A callback controller that will be invoked when DbRead is used as a Test stub */
+        /** @description A callback controller that will be invoked when Reader is used as a Test stub */
         private System.StubProvider controller;
         /** @constructor */
-        private DbRead() {
+        private Reader() {
         }
 
         /********************
@@ -79,9 +79,9 @@ global inherited sharing class ProxyTestFactory {
 
         /**
          * Adds a read step that will return a list of records of size 0.
-         * @return {DbRead} the reader instance for chaining
+         * @return {Reader} the reader instance for chaining
          */
-        global DbRead addEmptyReadStep() {
+        global Reader addEmptyReadStep() {
             Integer addNew = getBuildtimeStepRecords().isEmpty() ? 1 : 2;
             for (Integer i = 0, k = addNew; i < k; i++) {
                 this.readStepRecords.add(new List<SObject>());
@@ -91,11 +91,11 @@ global inherited sharing class ProxyTestFactory {
         }
 
         /**
-         * Add a new read step to the DbRead.
+         * Add a new read step to the Reader.
          * @param {SObject} record the root record to initizize the new read step list
-         * @return {DbRead} the reader instance for chaining
+         * @return {Reader} the reader instance for chaining
          */
-        global DbRead addReadStep(SObject record) {
+        global Reader addReadStep(SObject record) {
             if (!getBuildtimeStepRecords().isEmpty()) {
                 this.readStepRecords.add(new List<SObject>());
                 this.buildtimeCondition = null;
@@ -105,13 +105,13 @@ global inherited sharing class ProxyTestFactory {
         }
 
         /**
-         * Add a new read step to the DbRead.
+         * Add a new read step to the Reader.
          * @param {SObject} record the root record to initizize the new read step list
          * @param {String} condition the condition that must be set for the record list to return; use
          * setReadCondition() to enable the condition
-         * @return {DbRead} the reader instance for chaining
+         * @return {Reader} the reader instance for chaining
          */
-        global DbRead addConditionalRead(SObject record, String condition) {
+        global Reader addConditionalRead(SObject record, String condition) {
             this.readConditionalRecords.put(condition, new List<SObject>());
             this.buildtimeCondition = condition;
 
@@ -131,9 +131,9 @@ global inherited sharing class ProxyTestFactory {
         /**
          * Add a record to the current read list.
          * @param {SObject} record the record to add
-         * @return {DbRead} this instance for chaining
+         * @return {Reader} this instance for chaining
          */
-        global DbRead addRoot(SObject record) {
+        global Reader addRoot(SObject record) {
             // set a faux id
             setFauxId(record);
             // get the list to append record
@@ -175,9 +175,9 @@ global inherited sharing class ProxyTestFactory {
         /**
          * Appends the current record to the read list the given number of times INCLUDING the current record.
          * @param {Integer} number of times to repeat the current record
-         * @return {DbRead} this instance for chaining
+         * @return {Reader} this instance for chaining
          */
-        global DbRead repeat(Integer repeatCount) {
+        global Reader repeat(Integer repeatCount) {
             return repeat(repeatCount, null);
         }
 
@@ -188,9 +188,9 @@ global inherited sharing class ProxyTestFactory {
          * @param {Map<Schema.SObjectField, String>} a map of fields to the strings that will be written to each
          * record. Strings will have the following sequences replaced:
          *  - {0}: the repeated item number, starting from 1 (the original record should be treated as 0)
-         * @return {DbRead} this instance for chaining
+         * @return {Reader} this instance for chaining
          */
-        global DbRead repeat(
+        global Reader repeat(
             Integer repeatCount,
             Map<Schema.SObjectField, String> replacements
         ) {
@@ -227,11 +227,11 @@ global inherited sharing class ProxyTestFactory {
             record.put(field, String.format(replacee, replacements));
         }
 
-        global DbRead relateChild(SObject child) {
+        global Reader relateChild(SObject child) {
             return relateChild(child, getCurrentBuildtimeRecords().size() - 1);
         }
 
-        global DbRead relateChild(SObject child, Integer rootRecordPosition) {
+        global Reader relateChild(SObject child, Integer rootRecordPosition) {
             // set faux id
             setFauxId(child);
             // find the relationship name
@@ -276,7 +276,7 @@ global inherited sharing class ProxyTestFactory {
             return this;
         }
 
-        global DbRead relateParent(SObject parent, Schema.SObjectField field) {
+        global Reader relateParent(SObject parent, Schema.SObjectField field) {
             return relateParent(
                 parent,
                 field,
@@ -284,7 +284,7 @@ global inherited sharing class ProxyTestFactory {
             );
         }
 
-        global DbRead relateParent(
+        global Reader relateParent(
             SObject parent,
             Schema.SObjectField field,
             Integer rootRecordPosition
@@ -307,7 +307,7 @@ global inherited sharing class ProxyTestFactory {
          * that limits testing can be simulated. Note that otal queries can be simulated but rows
          * retrieved cannot.
          */
-        global DbRead testLimits() {
+        global Reader testLimits() {
             this.testLimits = true;
 
             return this;
@@ -366,7 +366,7 @@ global inherited sharing class ProxyTestFactory {
             return readList;
         }
 
-        global DbRead loopReadStep(Integer step) {
+        global Reader loopReadStep(Integer step) {
             this.freezeReadState = true;
             Integer max = readStepRecords.size() - 1;
             if (step < 0 || step > max) {
@@ -382,7 +382,7 @@ global inherited sharing class ProxyTestFactory {
             return this;
         }
 
-        global DbRead setReadCondition(String condition) {
+        global Reader setReadCondition(String condition) {
             if (!this.readConditionalRecords.keySet().contains(condition)) {
                 throw new FactoryException(
                     'Condition ' +
@@ -395,13 +395,13 @@ global inherited sharing class ProxyTestFactory {
             return this;
         }
 
-        global DbRead loopReadCondition(String condition) {
+        global Reader loopReadCondition(String condition) {
             this.freezeReadState = true;
 
             return setReadCondition(condition);
         }
 
-        global DbRead cancelLoop() {
+        global Reader cancelLoop() {
             this.freezeReadState = false;
             this.readtimeCondition = null;
 
@@ -423,7 +423,7 @@ global inherited sharing class ProxyTestFactory {
         }
     }
 
-    global virtual class DbWrite extends Proxy implements Proxies.DbWrite {
+    global virtual class Writer extends Proxy implements Proxy.Writer {
         global Boolean testLimits = false;
 
         global virtual List<Database.SaveResult> insertRecords(
@@ -471,7 +471,7 @@ global inherited sharing class ProxyTestFactory {
          * such that limits testing can be simulated. Note that total dml statements can be
          * simulated but dml rows cannot.
          */
-        global DbWrite testLimits() {
+        global Writer testLimits() {
             this.testLimits = true;
 
             return this;
@@ -484,7 +484,7 @@ global inherited sharing class ProxyTestFactory {
         }
     }
 
-    global virtual class TypeAccessor extends Proxy implements Proxies.TypeAccessor {
+    global virtual class TypeAccessor extends Proxy implements Proxy.TypeAccessor {
         global virtual Object call(String accessPath) {
             throw new FactoryException(
                 'Caller must either implement the call() method or use as a test stub'
