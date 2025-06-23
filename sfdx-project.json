@@ -4,12 +4,11 @@
       "path": "examples"
     },
     {
-      "versionName": "ver 0.61",
-      "versionNumber": "0.61.0.NEXT",
-      "path": "lib",
-      "default": true,
       "package": "apex-proxy",
-      "versionDescription": ""
+      "default": true,
+      "path": "force-app",
+      "versionName": "ver 0.61",
+      "versionNumber": "0.61.0.NEXT"
     }
   ],
   "name": "apex-proxy",
