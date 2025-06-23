@@ -4,11 +4,6 @@
  */
 
 public virtual inherited sharing class Proxy {
-    /************************************
-     * SINGLETON AND ITS INTERNAL STATE
-     ************************************/
-    private Object readContext;
-
     /** @description singleton instance that can only be set externally during test execution */
     public static Proxy singleton {
         get {
@@ -60,21 +55,12 @@ public virtual inherited sharing class Proxy {
          * READ API
          ***********************/
 
-        public Db setReadContext(Object readContext) {
-            singleton.readContext = readContext;
-
-            return this;
+        public List<SObject> read(DbReader reader) {
+            return this.read(reader, null);
         }
 
-        public List<SObject> read(DbReader reader) {
-            List<SObject> result = singleton.read(
-                reader,
-                singleton.readContext
-            );
-            // reset the readContext
-            singleton.readContext = null;
-
-            return result;
+        public List<SObject> read(DbReader reader, Object readContext) {
+            return singleton.read(reader, readContext);
         }
 
         /**********************
