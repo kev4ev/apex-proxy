@@ -48,6 +48,10 @@ public virtual inherited sharing class Proxy {
 
     public static final Db db = new Db();
 
+    public interface DbReader {
+        List<SObject> read(Object readContext);
+    }
+
     public class Db {
         private Db() {
         }
@@ -98,14 +102,6 @@ public virtual inherited sharing class Proxy {
         ) {
             return singleton.undeleteRecords(records);
         }
-    }
-
-    /**********************
-     * INTERFACES
-     ***********************/
-
-    public interface DbReader {
-        List<SObject> read(Object readContext);
     }
 
     /**********************
