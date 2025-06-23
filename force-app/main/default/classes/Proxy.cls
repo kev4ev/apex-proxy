@@ -63,7 +63,14 @@ public virtual inherited sharing class Proxy {
         }
 
         public List<SObject> read(DbReader reader) {
-            return singleton.read(reader, singleton.readContext);
+            List<SObject> result = singleton.read(
+                reader,
+                singleton.readContext
+            );
+            // reset the readContext
+            singleton.readContext = null;
+
+            return result;
         }
 
         /**********************
