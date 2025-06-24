@@ -16,8 +16,9 @@
     "prettier:verify": "prettier --check \"**/*.{cls,cmp,component,css,html,js,json,md,page,trigger,xml,yaml,yml}\"",
     "postinstall": "husky install",
     "precommit": "lint-staged",
-    "sf:org:init": "sf org create scratch -y $SFDUR -a $SFALIAS -d -w 15 -f config/scratch-pkg-validation.json",
-    "sf:deploy": "sf project deploy start -w 15 -d lib"
+    "sf:org:no-ns": "export NS_FLAG='--no-namespace'; npm run sf:org",
+    "sf:org": "sf org create scratch -y $SFDUR -a $SFALIAS -d -w 15 -f config/scratch-pkg-validation.json $NS_FLAG",
+    "sf:deploy": "sf project deploy start -w 15 -d force-app"
   },
   "devDependencies": {
     "@cparra/apexdocs": "^3.3.2",
