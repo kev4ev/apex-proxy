@@ -337,6 +337,10 @@ public inherited sharing class TestProxy {
      *   - covers Proxy as well as functionality in TestProxy
      ******************************************************************/
 
+    private static final String ACCT_NAME = 'Root Account ';
+    private static final String PARENT_NAME = 'Parent Account';
+    private static final String CT_FNAME = 'Child';
+    private static final String CT_LNAME = 'Contact ';
     private static String reflected;
 
     private class TestMockTarget implements Proxy.DbReader {
@@ -370,31 +374,37 @@ public inherited sharing class TestProxy {
             // return 5 Accounts that each have a parent and 5 child Contacts
             addReadRecord(new Account());
             relateParent(
-                new Account(Name = 'Parent Account'),
+                new Account(Name = PARENT_NAME),
                 Schema.Account.ParentId
             );
             for (Integer i = 0, k = 5; i < k; i++) {
                 relateChild(
                     new Contact(
-                        FirstName = 'Child',
-                        LastName = 'Contact ' + i.toString()
+                        FirstName = CT_FNAME,
+                        LastName = CT_LNAME + i.toString()
                     )
                 );
             }
+            String positionReplacement = '<replace>';
             repeat(
                 5,
                 new Map<Schema.SObjectField, Object>{
-                    Schema.Account.Name => 'Root Account <replace>' // set name here to test replacement
+                    Schema.Account.Name => ACCT_NAME +
+                    positionReplacement // set name here to test replacement
                 },
-                '<replace>'
+                positionReplacement
             );
 
             return read();
         }
     }
 
-    /******** TEST REDIRECT API *********/
     @isTest
+    /**
+     * @description Validates that the reflection API:
+     *   (1) returns the passed-in value when not mocked
+     *   (2) returns the mocked value when mocked
+     */
     private static void validateReflectionIntercept() {
         // validate normal reflection
         TestMockTarget target = new TestMockTarget();
@@ -408,6 +418,11 @@ public inherited sharing class TestProxy {
     }
 
     @isTest
+    /**
+     * @description Validates that the reader api:
+     *   (1) invokes the passed-in reader when not mocked, returning the expected result
+     *   (2) utilizes the mock singleton and returns the mocked response
+     */
     private static void validateDbReaderIntercept() {
         // assert no results in actual test db
         TestMockTarget target = new TestMockTarget();
@@ -415,7 +430,17 @@ public inherited sharing class TestProxy {
         // mock and assert the results
         Proxy.singleton = new TestMock();
         List<Account> mockResults = target.getAccountsAndChildren();
-        System.debug(JSON.serializePretty(mockResults));
+        // assert expected shape
         Assert.areEqual(5, mockResults.size());
+        for (Integer i = 0, k = mockResults.size(); i < k; i++) {
+            Account a = mockResults[i];
+            Assert.areEqual(ACCT_NAME + i.toString(), a.Name);
+            Assert.areEqual(PARENT_NAME, a.Parent.Name);
+            for (Integer c = 0, j = a.Contacts.size(); c < j; c++) {
+                Contact ct = a.Contacts.get(c);
+                Assert.areEqual(CT_FNAME, ct.FirstName);
+                Assert.areEqual(CT_LNAME + c.toString(), ct.LastName);
+            }
+        }
     }
 }
