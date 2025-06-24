@@ -37,6 +37,14 @@ public virtual inherited sharing class Proxy {
         return singleton.trap(value);
     }
 
+    /**
+     * @description a simple API for trapping and reflecting values in setters, including
+     * a key to indicate what value is being trapped.
+     */
+    public static Object reflect(Object value, String key) {
+        return singleton.trap(value, key);
+    }
+
     /**********************
      * db "namespace"
      ***********************/
@@ -96,6 +104,15 @@ public virtual inherited sharing class Proxy {
 
     /** @description reflect API implementation */
     public virtual Object trap(Object value) {
+        return trap(value, null);
+    }
+
+    /**
+     * @description reflect API implementation - allows you to trap a value
+     * at any point in code execution and introspect its value, along with a
+     * key indicating what value is being passed.
+     */
+    public virtual Object trap(Object value, String key) {
         return value;
     }
 
