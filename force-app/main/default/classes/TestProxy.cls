@@ -341,7 +341,9 @@ public inherited sharing class TestProxy {
     private static final String PARENT_NAME = 'Parent Account';
     private static final String CT_FNAME = 'Child';
     private static final String CT_LNAME = 'Contact ';
+
     private static String reflected;
+    private static String readerClassName;
 
     private class TestMockTarget implements Proxy.DbReader {
         public String readStateArg;
@@ -371,6 +373,8 @@ public inherited sharing class TestProxy {
         }
 
         public override List<SObject> read(Proxy.DbReader reader, Object ctx) {
+            // capture classname for validation
+            readerClassName = getClassName(reader);
             // return 5 Accounts that each have a parent and 5 child Contacts
             addReadRecord(new Account());
             relateParent(
@@ -442,5 +446,13 @@ public inherited sharing class TestProxy {
                 Assert.areEqual(CT_LNAME + c.toString(), ct.LastName);
             }
         }
+    }
+
+    @isTest
+    private static void validateIntrospectClassname() {
+        // set singleton mock and invoke target
+        Proxy.singleton = new TestMock();
+        new TestMockTarget().getAccountsAndChildren();
+        Assert.areEqual('TestMockTarget', readerClassName); // inner class name, but won't print
     }
 }

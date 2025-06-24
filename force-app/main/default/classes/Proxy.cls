@@ -142,7 +142,7 @@ public virtual inherited sharing class Proxy {
     /**********************
      * HELPER METHODS
      ***********************/
-    protected String getClassName(Object toIntrospect) {
-        return String.valueOf(toIntrospect).split(':')[0]; // todo - includes top-level for inner classes?
+    protected String getClassName(Proxy.DbReader reader) {
+        return String.valueOf(reader).split(':')[0]; // todo - includes top-level for inner classes?
     }
 }
