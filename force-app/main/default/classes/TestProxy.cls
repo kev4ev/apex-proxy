@@ -5,21 +5,24 @@
  */
 
 @isTest
-public inherited sharing class TestProxy {
+global inherited sharing class TestProxy /** extends only for validateDefaultProxyIsSingleton() test */ extends Proxy {
     /******************************
      * HELPER STATIC API AND STATE
      ******************************/
 
     private static Map<Schema.SObjectType, Integer> recordIdCounter = new Map<Schema.SObjectType, Integer>();
 
-    public static SObject setFauxId(SObject record) {
+    global static SObject setFauxId(SObject record) {
         record.Id = getFauxId(record);
 
         return record;
     }
 
-    public static String getFauxId(SObject record) {
-        Schema.SObjectType sot = record.getSObjectType();
+    global static String getFauxId(SObject record) {
+        return getFauxId(record.getSObjectType());
+    }
+
+    global static String getFauxId(Schema.SObjectType sot) {
         recordIdCounter.put(sot, (recordIdCounter.get(sot) ?? -1) + 1);
         String pos = recordIdCounter.get(sot).toString();
 
@@ -35,12 +38,12 @@ public inherited sharing class TestProxy {
         return fauxId;
     }
 
-    public abstract class Base extends Proxy {
+    global abstract class Base extends Proxy {
         /******************************************************************
          * REFLECT API OVERRIDE - allows extending test class to implement
          ******************************************************************/
 
-        public virtual override Object trap(Object value) {
+        global virtual override Object trap(Object value, String key) {
             return value;
         }
 
@@ -48,7 +51,7 @@ public inherited sharing class TestProxy {
          * READER API OVERRIDE - REQUIRES extending class to implement
          ******************************************************************/
 
-        public abstract override List<SObject> read(
+        global abstract override List<SObject> read(
             DbReader reader,
             Object readContext
         );
@@ -280,50 +283,50 @@ public inherited sharing class TestProxy {
          ******************************************************************/
 
         /** @description overridable; default implementation returns an empty list matching the size of records */
-        public virtual override List<Database.SaveResult> insertRecords(
+        global virtual override List<Database.SaveResult> insertRecords(
             List<SObject> records
         ) {
             return new List<Database.SaveResult>(records.size());
         }
 
         /** @description overridable; default implementation returns an empty list matching the size of records */
-        public virtual override List<Database.SaveResult> updateRecords(
+        global virtual override List<Database.SaveResult> updateRecords(
             List<SObject> records
         ) {
             return new List<Database.SaveResult>(records.size());
         }
 
         /** @description overridable; default implementation returns an empty list matching the size of records */
-        public virtual override List<Database.UpsertResult> upsertRecords(
+        global virtual override List<Database.UpsertResult> upsertRecords(
             List<SObject> records
         ) {
             return new List<Database.UpsertResult>(records.size());
         }
 
         /** @description overridable; default implementation returns an empty list matching the size of records */
-        public virtual override List<Database.DeleteResult> deleteRecords(
+        global virtual override List<Database.DeleteResult> deleteRecords(
             List<SObject> records
         ) {
             return new List<Database.DeleteResult>(records.size());
         }
 
         /** @description overridable; default implementation returns an empty list matching the size of records */
-        public virtual override List<Database.UndeleteResult> undeleteRecords(
+        global virtual override List<Database.UndeleteResult> undeleteRecords(
             List<SObject> records
         ) {
             return new List<Database.UndeleteResult>(records.size());
         }
     }
 
-    private class ChildRecords {
-        public Integer totalSize = 0;
-        public Boolean done = true;
-        public List<SObject> records = new List<SObject>();
+    global class ChildRecords {
+        global Integer totalSize = 0;
+        global Boolean done = true;
+        global List<SObject> records = new List<SObject>();
         /** @constructor */
-        public ChildRecords() {
+        private ChildRecords() {
         }
 
-        public void add(SObject child) {
+        global void add(SObject child) {
             this.records.add(child);
             this.totalSize = this.records.size();
         }
@@ -365,7 +368,7 @@ public inherited sharing class TestProxy {
     }
 
     private class TestMock extends TestProxy.Base {
-        public override Object trap(Object value) {
+        public override Object trap(Object value, String key) {
             String changeReflection = UUID.randomUUID().toString();
             reflected = changeReflection;
 
@@ -449,10 +452,48 @@ public inherited sharing class TestProxy {
     }
 
     @isTest
+    /**
+     * @description Validates that Proxy.DbReader classname introspection returns as expected.
+     */
     private static void validateIntrospectClassname() {
         // set singleton mock and invoke target
         Proxy.singleton = new TestMock();
         new TestMockTarget().getAccountsAndChildren();
         Assert.areEqual('TestMockTarget', readerClassName); // inner class name, but won't print
+    }
+
+    @isTest
+    /**
+     * @description Validates that a configured default proxy is used when configured
+     */
+    private static void validateDefaultProxyRespected() {
+        String orgDefault;
+        try {
+            orgDefault = System.Label.get(null, 'DefaultProxy');
+        } catch (Exception e) {
+            orgDefault = '';
+        }
+        Assert.areEqual(orgDefault, Proxy.DEF_PROXY);
+    }
+
+    @isTest
+    private static void validateDefaultProxyIsSingleton() {
+        // override DEF_PROXY and assert singleton is properly assigned
+        Proxy.DEF_PROXY = 'TestProxy';
+        Assert.isTrue(Proxy.singleton instanceof TestProxy);
+        // reset and test again
+        Proxy.singleton = null;
+        Proxy.DEF_PROXY = '';
+        Assert.isNotNull(Proxy.singleton);
+    }
+
+    @isTest
+    private static void coverProxyDbOperations() {
+        List<Account> accts = new List<Account>();
+        Assert.areEqual(0, Proxy.db.insertRecords(accts).size());
+        Assert.areEqual(0, Proxy.db.updateRecords(accts).size());
+        Assert.areEqual(0, Proxy.db.upsertRecords(accts).size());
+        Assert.areEqual(0, Proxy.db.deleteRecords(accts).size());
+        Assert.areEqual(0, Proxy.db.undeleteRecords(accts).size());
     }
 }

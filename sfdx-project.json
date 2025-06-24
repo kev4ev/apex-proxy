@@ -4,11 +4,12 @@
       "path": "examples"
     },
     {
-      "package": "apex-proxy",
-      "default": true,
+      "ancestorVersion": "HIGHEST",
+      "versionName": "ver 1.1.0",
+      "versionNumber": "1.1.0.NEXT",
       "path": "force-app",
-      "versionName": "ver 0.61",
-      "versionNumber": "0.61.0.NEXT"
+      "default": true,
+      "package": "Proxy"
     }
   ],
   "name": "apex-proxy",
@@ -16,6 +17,8 @@
   "sfdcLoginUrl": "https://login.salesforce.com",
   "sourceApiVersion": "61.0",
   "packageAliases": {
-    "apex-proxy": "0HoKY000000CaRb0AK"
+    "Proxy": "0HoKY000000CdDn0AK",
+    "Proxy@1.0.0-1": "04tKY000000cdKvYAI",
+    "Proxy@1.1.0-1": "04tKY000000cdL0YAI"
   }
 }
