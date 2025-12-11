@@ -18,7 +18,9 @@
     "precommit": "lint-staged",
     "sf:org:no-ns": "export NS_FLAG='--no-namespace'; npm run sf:org",
     "sf:org": "sf org create scratch -y $SFDUR -a $SFALIAS -d -w 15 -f config/scratch-pkg-validation.json $NS_FLAG",
-    "sf:deploy": "sf project deploy start -w 15 -d force-app"
+    "sf:deploy": "sf project deploy start -w 15 -d force-app",
+    "version:cover": "export CODE_FLAG='--code-coverage'; npm run version:create",
+    "version:create": "sf package version create -d force-app $CODE_FLAG -f config/scratch-pkg-validation.json -x -w 15"
   },
   "devDependencies": {
     "@cparra/apexdocs": "^3.3.2",

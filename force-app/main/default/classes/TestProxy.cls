@@ -5,7 +5,7 @@
  */
 
 @isTest
-public inherited sharing class TestProxy {
+public inherited sharing class TestProxy /** extends only for validateDefaultProxyIsSingleton() test */ extends Proxy {
     /******************************
      * HELPER STATIC API AND STATE
      ******************************/
@@ -19,16 +19,23 @@ public inherited sharing class TestProxy {
     }
 
     public static String getFauxId(SObject record) {
-        Schema.SObjectType sot = record.getSObjectType();
-        recordIdCounter.put(sot, (recordIdCounter.get(sot) ?? -1) + 1);
-        String pos = recordIdCounter.get(sot).toString();
+        return getFauxId(record.getSObjectType());
+    }
 
+    public static String getFauxId(Schema.SObjectType sot) {
+        if (!recordIdCounter.containsKey(sot)) {
+            recordIdCounter.put(sot, -1);
+        }
+        Integer pos = recordIdCounter.get(sot) + 1;
+        recordIdCounter.put(sot, pos);
+
+        String posStr = pos.toString();
         String fauxId = String.format(
             '{0}{1}{2}',
             new List<String>{
                 sot.getDescribe().getKeyPrefix(),
-                pos,
-                pos.length() < 12 ? '0'.repeat(12 - pos.length()) : ''
+                posStr.length() < 12 ? '0'.repeat(12 - posStr.length()) : '',
+                posStr
             }
         );
 
@@ -40,18 +47,20 @@ public inherited sharing class TestProxy {
          * REFLECT API OVERRIDE - allows extending test class to implement
          ******************************************************************/
 
-        public virtual override Object trap(Object value) {
+        public virtual override Object trap(Object value, String key) {
             return value;
         }
 
         /******************************************************************
-         * READER API OVERRIDE - REQUIRES extending class to implement
+         * READER API OVERRIDE - allows extending class to implement
          ******************************************************************/
 
-        public abstract override List<SObject> read(
+        public virtual override List<SObject> read(
             DbReader reader,
             Object readContext
-        );
+        ) {
+            return reader.read(readContext);
+        }
 
         /**************************************************
          * READER API - INTERNAL HELPER METHODS AND STATE
@@ -210,7 +219,8 @@ public inherited sharing class TestProxy {
             String relName = rawName.endsWith('__c')
                 ? rawName.replace('__c', '__r')
                 : rawName.replace('Id', '');
-            // delegate field set and return self
+            // set both foreign key and related object attributes
+            setRootFieldDynamic(rootRecordPosition, rawName, parent.Id);
             setRootFieldDynamic(rootRecordPosition, relName, parent);
 
             return this;
@@ -248,25 +258,34 @@ public inherited sharing class TestProxy {
         }
 
         protected List<SObject> read() {
-            return read(true);
+            // read with the default options
+            return read(new ReadOptions());
+        }
+
+        protected ReadOptions readOptions() {
+            return new ReadOptions();
         }
 
         /**
          * @description Read the previously constructed SObject list
-         * @param {Boolean} [resetState=true] when true (default) internal state will be cleared
+         * @param {ReadOptions} options
          * @returns {List<SObject>}
          */
-        protected List<SObject> read(Boolean resetState) {
+        protected List<SObject> read(ReadOptions readOptions) {
             // conditionally mock limits
             if (this.testLimits == true) {
                 Integer cnt = [SELECT COUNT() FROM Account LIMIT 1];
             }
             // create the list for return
-            List<SObject> result = resetState
+            List<SObject> result = readOptions.resetState
                 ? this.readRecords.deepClone(true, true, true)
                 : this.readRecords;
+            // conditionally recalculate formulas on result
+            if (readOptions.recaclFormulas) {
+                System.Formula.recalculateFormulas(result);
+            }
             // conditionaly reset internal state for subsequent mock
-            if (resetState) {
+            if (readOptions.resetState) {
                 this.readRecords.clear();
                 this.childMap.clear();
                 this.testLimits = false;
@@ -315,12 +334,29 @@ public inherited sharing class TestProxy {
         }
     }
 
-    private class ChildRecords {
+    public class ReadOptions {
+        public Boolean resetState = true;
+        public Boolean recaclFormulas = false;
+        private ReadOptions() {
+        }
+        public ReadOptions resetState(Boolean flag) {
+            this.resetState = flag;
+
+            return this;
+        }
+        public ReadOptions recaclFormulas(Boolean flag) {
+            this.recaclFormulas = flag;
+
+            return this;
+        }
+    }
+
+    public class ChildRecords {
         public Integer totalSize = 0;
         public Boolean done = true;
         public List<SObject> records = new List<SObject>();
         /** @constructor */
-        public ChildRecords() {
+        private ChildRecords() {
         }
 
         public void add(SObject child) {
@@ -365,7 +401,7 @@ public inherited sharing class TestProxy {
     }
 
     private class TestMock extends TestProxy.Base {
-        public override Object trap(Object value) {
+        public override Object trap(Object value, String key) {
             String changeReflection = UUID.randomUUID().toString();
             reflected = changeReflection;
 
@@ -449,10 +485,48 @@ public inherited sharing class TestProxy {
     }
 
     @isTest
+    /**
+     * @description Validates that Proxy.DbReader classname introspection returns as expected.
+     */
     private static void validateIntrospectClassname() {
         // set singleton mock and invoke target
         Proxy.singleton = new TestMock();
         new TestMockTarget().getAccountsAndChildren();
         Assert.areEqual('TestMockTarget', readerClassName); // inner class name, but won't print
+    }
+
+    @isTest
+    /**
+     * @description Validates that a configured default proxy is used when configured
+     */
+    private static void validateDefaultProxyRespected() {
+        String orgDefault;
+        try {
+            orgDefault = System.Label.get(null, 'DefaultProxy');
+        } catch (Exception e) {
+            orgDefault = '';
+        }
+        Assert.areEqual(orgDefault, Proxy.DEF_PROXY);
+    }
+
+    @isTest
+    private static void validateDefaultProxyIsSingleton() {
+        // override DEF_PROXY and assert singleton is properly assigned
+        Proxy.DEF_PROXY = 'TestProxy';
+        Assert.isTrue(Proxy.singleton instanceof TestProxy);
+        // reset and test again
+        Proxy.singleton = null;
+        Proxy.DEF_PROXY = '';
+        Assert.isNotNull(Proxy.singleton);
+    }
+
+    @isTest
+    private static void coverProxyDbOperations() {
+        List<Account> accts = new List<Account>();
+        Assert.areEqual(0, Proxy.db.insertRecords(accts).size());
+        Assert.areEqual(0, Proxy.db.updateRecords(accts).size());
+        Assert.areEqual(0, Proxy.db.upsertRecords(accts).size());
+        Assert.areEqual(0, Proxy.db.deleteRecords(accts).size());
+        Assert.areEqual(0, Proxy.db.undeleteRecords(accts).size());
     }
 }

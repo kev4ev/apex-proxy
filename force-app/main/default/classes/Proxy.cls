@@ -4,15 +4,15 @@
  */
 
 public virtual inherited sharing class Proxy {
-    /** @description singleton instance that can only be set externally during test execution */
+    /**
+     * @description singleton instance that can only be set (externally) during test execution
+     */
     public static Proxy singleton {
         get {
             if (singleton == null) {
-                String defaultProxy =
-                    /** System.Label.DefaultProxy;  todo */ '';
-                singleton = String.isBlank(defaultProxy)
+                singleton = String.isBlank(DEF_PROXY)
                     ? new Proxy()
-                    : (Proxy) Type.forName('c', defaultProxy).newInstance();
+                    : (Proxy) Type.forName(DEF_PROXY).newInstance();
             }
 
             return singleton;
@@ -20,6 +20,31 @@ public virtual inherited sharing class Proxy {
         set {
             if (Test.isRunningTest()) {
                 singleton = value;
+            }
+        }
+    }
+
+    @testVisible
+    /**
+     * @description Returns the configured default proxy, if existing, or null. Test-overridable.
+     */
+    private static String DEF_PROXY {
+        get {
+            if (DEF_PROXY == null) {
+                // null ns defaults to package ns or 'c' when unpackaged
+                try {
+                    DEF_PROXY = System.Label.get(null, 'DefaultProxy') ?? '';
+                } catch (Exception e) {
+                    // exception *will* be thrown if label does not exist in the ns
+                    DEF_PROXY = '';
+                }
+            }
+
+            return DEF_PROXY;
+        }
+        set {
+            if (Test.isRunningTest()) {
+                DEF_PROXY = value;
             }
         }
     }
@@ -34,7 +59,7 @@ public virtual inherited sharing class Proxy {
 
     /** @description a simple API for trapping and reflecting values in setters */
     public static Object reflect(Object value) {
-        return singleton.trap(value);
+        return reflect(value, null);
     }
 
     /**
@@ -98,19 +123,14 @@ public virtual inherited sharing class Proxy {
         }
     }
 
-    /**********************
-     * SINGLETON OVERRIDES
-     ***********************/
-
-    /** @description reflect API implementation */
-    public virtual Object trap(Object value) {
-        return trap(value, null);
-    }
+    /*********************************
+     * SINGLETON OVERRIDEABLE METHODS
+     *********************************/
 
     /**
      * @description reflect API implementation - allows you to trap a value
-     * at any point in code execution and introspect its value, along with a
-     * key indicating what value is being passed.
+     * at any point in code execution and introspect its value, along with an
+     * optional key indicating what value is being passed.
      */
     public virtual Object trap(Object value, String key) {
         return value;
