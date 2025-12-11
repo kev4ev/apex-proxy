@@ -6,7 +6,8 @@
     {
       "path": "force-app",
       "default": true,
-      "package": "Proxy"
+      "package": "Proxy",
+      "versionNumber": "2.0.0.NEXT"
     }
   ],
   "name": "apex-proxy",

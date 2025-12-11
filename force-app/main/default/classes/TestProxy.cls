@@ -1,27 +1,47 @@
 /**
- * @description Provides base class for intercepting calls to Proxy singleton APIs (.db, .reflect())
- * for purposes of mocking.
+ * @description Use to intercept calls to Proxy singleton APIs (.db, .reflect()) for mocking during unit tests.
+ * Inner base class is necessary as isTest classes cannot be abstract or virtual.
+ *
  * Provided under the MIT License github.com/kev4ev/apex-proxy
  */
 
 @isTest
-public inherited sharing class TestProxy /** extends only for validateDefaultProxyIsSingleton() test */ extends Proxy {
-    /******************************
-     * HELPER STATIC API AND STATE
-     ******************************/
-
+public inherited sharing class TestProxy {
     private static Map<Schema.SObjectType, Integer> recordIdCounter = new Map<Schema.SObjectType, Integer>();
 
+    /******************************
+     * STATIC HELPER APIs
+     ******************************/
+
+    /**
+     * @description Mock the Proxy.singleton with the caller's implementation. Convenience method only
+     * as caller could set Proxy.singleton manually.
+     */
+    public static Base mockSingleton(Base singletonMock) {
+        Proxy.singleton = singletonMock;
+
+        return singletonMock;
+    }
+
+    /**
+     * @description set a a fake Id on an SObject and return it
+     */
     public static SObject setFauxId(SObject record) {
         record.Id = getFauxId(record);
 
         return record;
     }
 
+    /**
+     * @description get a fake Id for an SObject but do not update the SObject itself
+     */
     public static String getFauxId(SObject record) {
         return getFauxId(record.getSObjectType());
     }
 
+    /**
+     * @description get a fake Id for an SObjectType
+     */
     public static String getFauxId(Schema.SObjectType sot) {
         if (!recordIdCounter.containsKey(sot)) {
             recordIdCounter.put(sot, -1);
@@ -42,7 +62,10 @@ public inherited sharing class TestProxy /** extends only for validateDefaultPro
         return fauxId;
     }
 
-    public abstract class Base extends Proxy {
+    /**
+     * @description Base class to extend to mock db calls during unit testing.
+     */
+    public virtual class Base extends Proxy {
         /******************************************************************
          * REFLECT API OVERRIDE - allows extending test class to implement
          ******************************************************************/
@@ -62,21 +85,69 @@ public inherited sharing class TestProxy /** extends only for validateDefaultPro
             return reader.read(readContext);
         }
 
+        /******************************************************************
+         * WRITE API OVERRIDE - allows extending class to override
+         ******************************************************************/
+
+        /** @description overridable; default implementation returns an empty list matching the size of records */
+        public virtual override List<Database.SaveResult> insertRecords(
+            List<SObject> records
+        ) {
+            return new List<Database.SaveResult>(records.size());
+        }
+
+        /** @description overridable; default implementation returns an empty list matching the size of records */
+        public virtual override List<Database.SaveResult> updateRecords(
+            List<SObject> records
+        ) {
+            return new List<Database.SaveResult>(records.size());
+        }
+
+        /** @description overridable; default implementation returns an empty list matching the size of records */
+        public virtual override List<Database.UpsertResult> upsertRecords(
+            List<SObject> records
+        ) {
+            return new List<Database.UpsertResult>(records.size());
+        }
+
+        /** @description overridable; default implementation returns an empty list matching the size of records */
+        public virtual override List<Database.DeleteResult> deleteRecords(
+            List<SObject> records
+        ) {
+            return new List<Database.DeleteResult>(records.size());
+        }
+
+        /** @description overridable; default implementation returns an empty list matching the size of records */
+        public virtual override List<Database.UndeleteResult> undeleteRecords(
+            List<SObject> records
+        ) {
+            return new List<Database.UndeleteResult>(records.size());
+        }
+    }
+
+    /**
+     * @description Provides powerful API for constructing mock SOQL responses
+     * including child and parent records.
+     */
+    public class MockReader {
         /**************************************************
-         * READER API - INTERNAL HELPER METHODS AND STATE
-         *   - all helper methods can be chained
+         * READER API - INTERNAL STATE
          **************************************************/
         private List<SObject> readRecords = new List<SObject>();
         private Map<Schema.SObjectType, List<Schema.ChildRelationship>> childrenRelMap = new Map<Schema.SObjectType, List<Schema.ChildRelationship>>();
         private Map<String, ChildRecords> childMap = new Map<String, ChildRecords>();
         private Boolean testLimits = false;
 
+        /**************************************************
+         * READER API - HELPER METHODS (CHAINABLE)
+         **************************************************/
+
         /**
          * Add the root record for the next read() invocation
          * @param {SObject} record - the root record type to add
          * @returns {Base} for chaining
          **/
-        protected Base addReadRecord(SObject record) {
+        public MockReader addReadRecord(SObject record) {
             // set a faux id
             setFauxId(record);
             // conditionally add child meta
@@ -98,7 +169,7 @@ public inherited sharing class TestProxy /** extends only for validateDefaultPro
          * @param {Integer} number of times to repeat the current record
          * @return {Base} this instance for chaining
          */
-        protected Base repeat(Integer repeatCount) {
+        public MockReader repeat(Integer repeatCount) {
             return repeat(repeatCount, null, null);
         }
 
@@ -111,7 +182,7 @@ public inherited sharing class TestProxy /** extends only for validateDefaultPro
          * the current item in the read list (i.e. Integer.toString())
          * @return {Base} this instance for chaining
          */
-        protected Base repeat(
+        public MockReader repeat(
             Integer repeatCount,
             Map<Schema.SObjectField, Object> fieldMap,
             String replacement
@@ -157,11 +228,14 @@ public inherited sharing class TestProxy /** extends only for validateDefaultPro
             record.put(field, value);
         }
 
-        protected Base relateChild(SObject child) {
+        public MockReader relateChild(SObject child) {
             return relateChild(child, this.readRecords.size() - 1);
         }
 
-        protected Base relateChild(SObject child, Integer rootRecordPosition) {
+        public MockReader relateChild(
+            SObject child,
+            Integer rootRecordPosition
+        ) {
             // set faux id
             setFauxId(child);
             // find the relationship name
@@ -203,11 +277,14 @@ public inherited sharing class TestProxy /** extends only for validateDefaultPro
             return this;
         }
 
-        protected Base relateParent(SObject parent, Schema.SObjectField field) {
+        public MockReader relateParent(
+            SObject parent,
+            Schema.SObjectField field
+        ) {
             return relateParent(parent, field, this.readRecords.size() - 1);
         }
 
-        protected Base relateParent(
+        public MockReader relateParent(
             SObject parent,
             Schema.SObjectField field,
             Integer rootRecordPosition
@@ -251,18 +328,18 @@ public inherited sharing class TestProxy /** extends only for validateDefaultPro
          * that limits testing can be simulated. Note that otal queries can be simulated but rows
          * retrieved cannot.
          */
-        protected Base testLimits() {
+        public MockReader testLimits() {
             this.testLimits = true;
 
             return this;
         }
 
-        protected List<SObject> read() {
+        public List<SObject> read() {
             // read with the default options
             return read(new ReadOptions());
         }
 
-        protected ReadOptions readOptions() {
+        public ReadOptions readOptions() {
             return new ReadOptions();
         }
 
@@ -271,7 +348,7 @@ public inherited sharing class TestProxy /** extends only for validateDefaultPro
          * @param {ReadOptions} options
          * @returns {List<SObject>}
          */
-        protected List<SObject> read(ReadOptions readOptions) {
+        public List<SObject> read(ReadOptions readOptions) {
             // conditionally mock limits
             if (this.testLimits == true) {
                 Integer cnt = [SELECT COUNT() FROM Account LIMIT 1];
@@ -292,45 +369,6 @@ public inherited sharing class TestProxy /** extends only for validateDefaultPro
             }
 
             return result;
-        }
-
-        /******************************************************************
-         * WRITE API OVERRIDE - allows extending class to override
-         ******************************************************************/
-
-        /** @description overridable; default implementation returns an empty list matching the size of records */
-        public virtual override List<Database.SaveResult> insertRecords(
-            List<SObject> records
-        ) {
-            return new List<Database.SaveResult>(records.size());
-        }
-
-        /** @description overridable; default implementation returns an empty list matching the size of records */
-        public virtual override List<Database.SaveResult> updateRecords(
-            List<SObject> records
-        ) {
-            return new List<Database.SaveResult>(records.size());
-        }
-
-        /** @description overridable; default implementation returns an empty list matching the size of records */
-        public virtual override List<Database.UpsertResult> upsertRecords(
-            List<SObject> records
-        ) {
-            return new List<Database.UpsertResult>(records.size());
-        }
-
-        /** @description overridable; default implementation returns an empty list matching the size of records */
-        public virtual override List<Database.DeleteResult> deleteRecords(
-            List<SObject> records
-        ) {
-            return new List<Database.DeleteResult>(records.size());
-        }
-
-        /** @description overridable; default implementation returns an empty list matching the size of records */
-        public virtual override List<Database.UndeleteResult> undeleteRecords(
-            List<SObject> records
-        ) {
-            return new List<Database.UndeleteResult>(records.size());
         }
     }
 
@@ -409,16 +447,18 @@ public inherited sharing class TestProxy /** extends only for validateDefaultPro
         }
 
         public override List<SObject> read(Proxy.DbReader reader, Object ctx) {
-            // capture classname for validation
+            // capture classname for assertion
             readerClassName = getClassName(reader);
+
+            MockReader mockRead = new MockReader();
             // return 5 Accounts that each have a parent and 5 child Contacts
-            addReadRecord(new Account());
-            relateParent(
+            mockRead.addReadRecord(new Account());
+            mockRead.relateParent(
                 new Account(Name = PARENT_NAME),
                 Schema.Account.ParentId
             );
             for (Integer i = 0, k = 5; i < k; i++) {
-                relateChild(
+                mockRead.relateChild(
                     new Contact(
                         FirstName = CT_FNAME,
                         LastName = CT_LNAME + i.toString()
@@ -426,7 +466,7 @@ public inherited sharing class TestProxy /** extends only for validateDefaultPro
                 );
             }
             String positionReplacement = '<replace>';
-            repeat(
+            mockRead.repeat(
                 5,
                 new Map<Schema.SObjectField, Object>{
                     Schema.Account.Name => ACCT_NAME +
@@ -435,7 +475,7 @@ public inherited sharing class TestProxy /** extends only for validateDefaultPro
                 positionReplacement
             );
 
-            return read();
+            return mockRead.read();
         }
     }
 
@@ -512,8 +552,8 @@ public inherited sharing class TestProxy /** extends only for validateDefaultPro
     @isTest
     private static void validateDefaultProxyIsSingleton() {
         // override DEF_PROXY and assert singleton is properly assigned
-        Proxy.DEF_PROXY = 'TestProxy';
-        Assert.isTrue(Proxy.singleton instanceof TestProxy);
+        Proxy.DEF_PROXY = 'TestProxy.Base';
+        Assert.isTrue(Proxy.singleton instanceof TestProxy.Base);
         // reset and test again
         Proxy.singleton = null;
         Proxy.DEF_PROXY = '';

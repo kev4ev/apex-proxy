@@ -31,8 +31,8 @@ public virtual inherited sharing class Proxy {
     private static String DEF_PROXY {
         get {
             if (DEF_PROXY == null) {
-                // null ns defaults to package ns or 'c' when unpackaged
                 try {
+                    // null ns defaults to package ns or 'c' when unpackaged
                     DEF_PROXY = System.Label.get(null, 'DefaultProxy') ?? '';
                 } catch (Exception e) {
                     // exception *will* be thrown if label does not exist in the ns
