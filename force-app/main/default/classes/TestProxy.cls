@@ -14,10 +14,15 @@ public inherited sharing class TestProxy {
      ******************************/
 
     /**
-     * @description Mock the Proxy.singleton with the caller's implementation. Convenience method only
-     * as caller could set Proxy.singleton manually.
+     * @description Mock Proxy.singleton using the default TestProxy.Base implementation.
      */
-    public static Base mockSingleton(Base singletonMock) {
+    public static Base mockProxy() {
+        return mockProxy(new Base());
+    }
+    /**
+     * @description Mock the Proxy.singleton with the caller's implementation.
+     */
+    public static Base mockProxy(Base singletonMock) {
         Proxy.singleton = singletonMock;
 
         return singletonMock;
@@ -63,30 +68,57 @@ public inherited sharing class TestProxy {
     }
 
     /**
-     * @description Base class to extend to mock db calls during unit testing.
+     * @description Base class that can be used two ways:
+     *   1. as a base class to be implemented by the caller,
+     *   2. for use as-is with a convenience method to mock the READ api
      */
     public virtual class Base extends Proxy {
+        private Map<String, MockReader> readMocks = new Map<String, MockReader>();
+        private Map<String, Object> trapMocks = new Map<String, Object>();
+        public Map<String, Object> trapAudit { get; private set; }
+
         /******************************************************************
-         * REFLECT API OVERRIDE - allows extending test class to implement
+         * REFLECT API: allows extending class to override
          ******************************************************************/
 
         public virtual override Object trap(Object value, String key) {
-            return value;
+            // capture trapped object for introspection
+            if (this.trapAudit == null) {
+                this.trapAudit = new Map<String, Object>();
+            }
+            // store either the key or the last non-keyed object
+            this.trapAudit.put(key ?? '', value);
+            // return either of the mocked key's value or the actual value
+            return trapMocks.get(key) ?? value;
+        }
+
+        public void trapMock(String key, Object value) {
+            trapMocks.put(key, value);
         }
 
         /******************************************************************
-         * READER API OVERRIDE - allows extending class to implement
+         * READ API: allows extending class to override
          ******************************************************************/
 
         public virtual override List<SObject> read(
             DbReader reader,
             Object readContext
         ) {
-            return reader.read(readContext);
+            String readerName = getClassName(reader).toLowerCase();
+            // return either the previously-suplied mock reader or the passed one
+            return readMocks.get(readerName)?.read(readContext) ??
+                reader.read(readContext);
+        }
+
+        public MockReader readMock(System.Type readerClass) {
+            MockReader mock = new MockReader();
+            readMocks.put(readerClass.getName().toLowerCase(), mock);
+
+            return mock;
         }
 
         /******************************************************************
-         * WRITE API OVERRIDE - allows extending class to override
+         * WRITE API: allows extending class to override
          ******************************************************************/
 
         /** @description overridable; default implementation returns an empty list matching the size of records */
@@ -129,17 +161,98 @@ public inherited sharing class TestProxy {
      * @description Provides powerful API for constructing mock SOQL responses
      * including child and parent records.
      */
-    public class MockReader {
+    public virtual class MockReader implements Proxy.DbReader {
         /**************************************************
-         * READER API - INTERNAL STATE
+         * CONSTRUCTORS AND INITIAL STATE
+         **************************************************/
+        public ReadOptions readOptions;
+        /** @description stores the state of each result returned from read() for introspection / assertions */
+        public List<List<SObject>> readAudit { get; private set; }
+
+        public MockReader() {
+            this(new ReadOptions());
+        }
+        public MockReader(ReadOptions readOptions) {
+            this.readOptions = readOptions;
+        }
+
+        /**************************************************
+         * INTERNAL STATE FROM RESULT-BUILDER API
          **************************************************/
         private List<SObject> readRecords = new List<SObject>();
         private Map<Schema.SObjectType, List<Schema.ChildRelationship>> childrenRelMap = new Map<Schema.SObjectType, List<Schema.ChildRelationship>>();
         private Map<String, ChildRecords> childMap = new Map<String, ChildRecords>();
         private Boolean testLimits = false;
+        /** link-relevant state */
+        private Integer reads = 0;
+        private Integer linkAfterReads;
+        private MockReader linked;
 
         /**************************************************
-         * READER API - HELPER METHODS (CHAINABLE)
+         * READER API - OVERRIDABLE IMPLEMENTATION
+         **************************************************/
+
+        Object readContext;
+
+        public virtual List<SObject> read(Object readContext) {
+            this.readContext = readContext;
+            // readContext is discarded in default implementation - override to utilize it
+            return read();
+        }
+
+        /**
+         * @description Read the previously constructed SObject list
+         * @param {ReadOptions} [options]
+         * @returns {List<SObject>}
+         */
+        private List<SObject> read() {
+            // handle linking
+            if (this.linked != null && this.linkAfterReads == this.reads) {
+                return this.linked.read(this.readContext);
+            }
+            // conditionally mock limits
+            if (this.testLimits == true) {
+                Integer cnt = [SELECT COUNT() FROM Account LIMIT 1];
+            }
+            // create the list for return and persist to readAudit
+            List<SObject> result = this.readOptions.clearStateOnRead
+                ? this.readRecords.deepClone(true, true, true)
+                : this.readRecords;
+            if (this.readAudit == null) {
+                this.readAudit = new List<List<SObject>>();
+            }
+            this.readAudit.add(result);
+
+            // conditionally recalculate formulas on result
+            if (this.readOptions.recaclFormulas) {
+                System.Formula.recalculateFormulas(result);
+            }
+            // conditionaly reset internal state for subsequent mock
+            if (this.readOptions.clearStateOnRead) {
+                this.readRecords.clear();
+                this.childMap.clear();
+                this.testLimits = false;
+            }
+            // handle linking state
+            this.reads += 1;
+
+            return result;
+        }
+
+        /**************************************************
+         * LINK API
+         **************************************************/
+        public void link(MockReader linkedReader) {
+            link(linkedReader, 1);
+        }
+
+        public void link(MockReader linkedReader, Integer linkAfterReads) {
+            this.linked = linkedReader;
+            this.linkAfterReads = linkAfterReads;
+        }
+
+        /**************************************************
+         * RESULT-BUILDER API
          **************************************************/
 
         /**
@@ -333,52 +446,15 @@ public inherited sharing class TestProxy {
 
             return this;
         }
-
-        public List<SObject> read() {
-            // read with the default options
-            return read(new ReadOptions());
-        }
-
-        public ReadOptions readOptions() {
-            return new ReadOptions();
-        }
-
-        /**
-         * @description Read the previously constructed SObject list
-         * @param {ReadOptions} options
-         * @returns {List<SObject>}
-         */
-        public List<SObject> read(ReadOptions readOptions) {
-            // conditionally mock limits
-            if (this.testLimits == true) {
-                Integer cnt = [SELECT COUNT() FROM Account LIMIT 1];
-            }
-            // create the list for return
-            List<SObject> result = readOptions.resetState
-                ? this.readRecords.deepClone(true, true, true)
-                : this.readRecords;
-            // conditionally recalculate formulas on result
-            if (readOptions.recaclFormulas) {
-                System.Formula.recalculateFormulas(result);
-            }
-            // conditionaly reset internal state for subsequent mock
-            if (readOptions.resetState) {
-                this.readRecords.clear();
-                this.childMap.clear();
-                this.testLimits = false;
-            }
-
-            return result;
-        }
     }
 
     public class ReadOptions {
-        public Boolean resetState = true;
+        public Boolean clearStateOnRead = false;
         public Boolean recaclFormulas = false;
         private ReadOptions() {
         }
-        public ReadOptions resetState(Boolean flag) {
-            this.resetState = flag;
+        public ReadOptions clearStateOnRead(Boolean flag) {
+            this.clearStateOnRead = flag;
 
             return this;
         }
