@@ -4,7 +4,7 @@
  */
 
 @isTest
-public inherited sharing class ProxyTest {
+public inherited sharing class ProxyTest extends Proxy.MockReader {
     private static final String ACCT_NAME = 'Root Account ';
     private static final String PARENT_NAME = 'Parent Account';
     private static final String CT_FNAME = 'Child';
@@ -12,6 +12,14 @@ public inherited sharing class ProxyTest {
 
     private static String reflected;
     private static String readerClassName;
+
+    /** @description Proxy.MockReader implementation */
+    public override List<SObject> read(Object ctx) {
+        return [
+            SELECT Id, Parent.Name, (SELECT FirstName, LastName FROM Contacts)
+            FROM Account
+        ];
+    }
 
     /********************************************
      * VALIDATE REFLECT API
@@ -66,10 +74,31 @@ public inherited sharing class ProxyTest {
     }
 
     @isTest
-    private static void validateTrap() {
+    private static void reflect_validateTrap() {
         Proxy.mock();
         Integer trapped = (Integer) Proxy.reflect(42, 'int');
         Assert.areEqual(42, (Integer) Proxy.mock.trapAudit.get('int'));
+    }
+
+    @isTest
+    private static void db_coverWrite() {
+        Proxy.mock();
+        coverProxyDbOperations();
+    }
+
+    @isTest
+    private static void dbRead_validateMockRead() {
+        // TODO failing
+        Proxy.mock()
+            .readMock(ProxyTest.class)
+            .addReadRecord(Proxy.mock.setFauxId(new Account()));
+        // assert 1 account returned, and that each read returns a clean (cloned) record
+        ProxyTest reader = new ProxyTest();
+        Account a0 = (Account) Proxy.db.read(reader)[0];
+        Account a1 = (Account) Proxy.db.read(reader)[0];
+        Assert.isNotNull(a0.Id);
+        Assert.isNotNull(a1.Id);
+        Assert.areNotEqual(a0.Id, a1.Id);
     }
 
     /********************************************

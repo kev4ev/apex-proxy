@@ -180,10 +180,6 @@ public virtual inherited sharing class Proxy {
     }
 
     /**********************
-     * MOCK API
-     ***********************/
-
-    /**********************
      * HELPER METHODS
      ***********************/
 
@@ -196,6 +192,10 @@ public virtual inherited sharing class Proxy {
     protected String getClassName(Object instance) {
         return String.valueOf(instance).split(':')[0];
     }
+
+    /**********************
+     * MOCK API
+     ***********************/
 
     @testVisible
     private static Mock mockSingleton = new Mock();
@@ -236,9 +236,9 @@ public virtual inherited sharing class Proxy {
             }
         }
 
-        /******************************
-         * "STATIC" HELPER APIs
-         ******************************/
+        /************************************************************
+         * "STATIC" MOCK HELPER APIs (accessible via Proxy.mock getter)
+         ************************************************************/
 
         /**
          * @description set a a fake Id on an SObject and return it
@@ -282,7 +282,7 @@ public virtual inherited sharing class Proxy {
         }
 
         /******************************************************************
-         * REFLECT API: allows extending class to override
+         * MOCK REFLECT API: allows extending class to override
          ******************************************************************/
 
         public virtual override Object trap(Object value, String key) {
@@ -306,7 +306,7 @@ public virtual inherited sharing class Proxy {
         }
 
         /******************************************************************
-         * READ API: allows extending class to override
+         * MOCK READ API: allows extending class to override
          ******************************************************************/
 
         public virtual override List<SObject> read(
@@ -340,7 +340,7 @@ public virtual inherited sharing class Proxy {
         }
 
         /******************************************************************
-         * WRITE API: allows extending class to override
+         * MOCK WRITE API: allows extending class to override
          ******************************************************************/
 
         /** @description overridable; default implementation returns an empty list matching the size of records */
