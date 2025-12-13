@@ -180,33 +180,42 @@ public virtual inherited sharing class Proxy {
     }
 
     /**********************
-     * HELPER METHODS
-     ***********************/
-    protected String getClassName(Proxy.DbReader reader) {
-        return String.valueOf(reader).split(':')[0]; // todo - includes top-level for inner classes?
-    }
-
-    /**********************
      * MOCK API
      ***********************/
 
-    private static Mock defaultMock = new Mock();
+    /**********************
+     * HELPER METHODS
+     ***********************/
+
+    /** @description common api for classname introspection - ONLY returns inner class name if not a top-level class */
+    public static String introspectName(Object instance) {
+        return singleton.getClassName(instance);
+    }
+
+    /** @description provided for backward compat */
+    protected String getClassName(Object instance) {
+        return String.valueOf(instance).split(':')[0];
+    }
+
+    @testVisible
+    private static Mock mockSingleton = new Mock();
 
     /** @description Acts as a pseudo-ns */
     public static Mock mock {
         get {
-            return defaultMock;
+            return mockSingleton;
         }
     }
 
     public static Mock mock() {
-        return mock(defaultMock);
+        return mock(mockSingleton);
     }
 
-    public static Mock mock(Mock proxyMock) {
-        singleton = proxyMock;
+    public static Mock mock(Mock customMock) {
+        mockSingleton = customMock;
+        singleton = customMock;
 
-        return proxyMock;
+        return customMock;
     }
 
     public virtual class Mock extends Proxy {
@@ -214,12 +223,14 @@ public virtual inherited sharing class Proxy {
         private Map<String, MockReader> readMocks = new Map<String, MockReader>();
         private Map<String, Object> trapMocks = new Map<String, Object>();
 
+        /** @description stores the state of each key/value passed to reflect(); useful for introspection / assertions */
         public Map<String, Object> trapAudit { get; private set; }
+        /** @description stores the state of each result returned from read(); useful for introspection / assertions */
         public Map<String, List<List<SObject>>> readAudit { get; private set; }
 
         public Mock() {
             if (!Test.isRunningTest()) {
-                throw new ProxyException(
+                throw new MockProxyException(
                     'Mock api is only available during Apex test execution.'
                 );
             }
@@ -315,7 +326,10 @@ public virtual inherited sharing class Proxy {
             if (this.readAudit == null) {
                 this.readAudit = new Map<String, List<List<SObject>>>();
             }
-            this.readAudit.get(readerName.toLowerCase()).add(readRecords);
+            if (this.readAudit.get(readerName) == null) {
+                this.readAudit.put(readerName, new List<List<SObject>>());
+            }
+            this.readAudit.get(readerName).add(readRecords);
         }
 
         public MockReader readMock(System.Type readerClass) {
@@ -374,7 +388,6 @@ public virtual inherited sharing class Proxy {
          * CONSTRUCTORS AND INITIAL STATE
          **************************************************/
         public MockReadOptions readOptions;
-        /** @description stores the state of each result returned from read() for introspection / assertions */
         public List<List<SObject>> readAudit { get; private set; }
 
         public MockReader() {
@@ -423,9 +436,9 @@ public virtual inherited sharing class Proxy {
                 Integer cnt = [SELECT COUNT() FROM Account LIMIT 1];
             }
             // create the list for return and persist to readAudit
-            List<SObject> result = this.readOptions.clearStateOnRead
-                ? this.readRecords.deepClone(true, true, true)
-                : this.readRecords;
+            List<SObject> result = this.readOptions.relayRead
+                ? this.readRecords
+                : this.readRecords.deepClone(true, true, true);
             if (this.readAudit == null) {
                 this.readAudit = new List<List<SObject>>();
             }
@@ -435,6 +448,7 @@ public virtual inherited sharing class Proxy {
             if (this.readOptions.recaclFormulas) {
                 System.Formula.recalculateFormulas(result);
             }
+
             // conditionaly reset internal state for subsequent mock
             if (this.readOptions.clearStateOnRead) {
                 this.readRecords.clear();
@@ -577,7 +591,7 @@ public virtual inherited sharing class Proxy {
             }
             // throw if invalid relationship
             if (String.isBlank(relationshipName)) {
-                throw new ProxyMockException(
+                throw new MockProxyException(
                     childType.getDescribe().getName() +
                         ' is not a valid child of ' +
                         parentType.getDescribe().getName()
@@ -658,6 +672,7 @@ public virtual inherited sharing class Proxy {
 
     public class MockReadOptions {
         public Boolean clearStateOnRead = false;
+        public Boolean relayRead = false;
         public Boolean recaclFormulas = false;
         private MockReadOptions() {
         }
@@ -687,9 +702,6 @@ public virtual inherited sharing class Proxy {
         }
     }
 
-    private class ProxyException extends Exception {
-    }
-
-    private class ProxyMockException extends Exception {
+    private class MockProxyException extends Exception {
     }
 }
