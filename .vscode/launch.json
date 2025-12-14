@@ -8,7 +8,7 @@
       "name": "Launch Apex Replay Debugger",
       "type": "apex-replay",
       "request": "launch",
-      "logFile": "${file}",
+      "logFile": "${command:AskForLogFileName}",
       "stopOnEntry": true,
       "trace": true
     }

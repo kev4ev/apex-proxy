@@ -88,17 +88,28 @@ public inherited sharing class ProxyTest extends Proxy.MockReader {
 
     @isTest
     private static void dbRead_validateMockRead() {
-        // TODO failing
         Proxy.mock()
-            .readMock(ProxyTest.class)
+            .mockReader(ProxyTest.class)
             .addReadRecord(Proxy.mock.setFauxId(new Account()));
-        // assert 1 account returned, and that each read returns a clean (cloned) record
+
+        // assert "clean mode": 1 account returned and each read returns a clone of the read record
         ProxyTest reader = new ProxyTest();
         Account a0 = (Account) Proxy.db.read(reader)[0];
-        Account a1 = (Account) Proxy.db.read(reader)[0];
         Assert.isNotNull(a0.Id);
-        Assert.isNotNull(a1.Id);
-        Assert.areNotEqual(a0.Id, a1.Id);
+        a0.Name = 'Modified In-Memory';
+        Account a1 = (Account) Proxy.db.read(reader)[0];
+        Assert.areEqual(a0.Id, a1.Id);
+        Assert.isNull(a1.Name);
+
+        // validate the readAudit
+        Account audit0 = ((Account) Proxy.mock.readAudit.get('proxytest')
+            .get(0)
+            .get(0));
+        Account audit1 = ((Account) Proxy.mock.readAudit.get('proxytest')
+            .get(1)
+            .get(0));
+        Assert.isNotNull(audit0.Name);
+        Assert.isNull(audit1.Name);
     }
 
     /********************************************

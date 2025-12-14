@@ -315,8 +315,9 @@ public virtual inherited sharing class Proxy {
         ) {
             String readerName = getClassName(reader).toLowerCase();
             // return either the previously-suplied mock reader or the passed one
-            List<SObject> readRecords = readMocks.get(readerName)
-                ?.read(readContext) ?? reader.read(readContext);
+            MockReader mocker = readMocks.get(readerName);
+            List<SObject> readRecords = mocker?.read(readContext) ??
+                reader.read(readContext);
             readAudit(readerName, readRecords);
 
             return readRecords;
@@ -332,9 +333,21 @@ public virtual inherited sharing class Proxy {
             this.readAudit.get(readerName).add(readRecords);
         }
 
-        public MockReader readMock(System.Type readerClass) {
+        /** @description Use when you want mocking a class in the same namespace only */
+        public MockReader mockReader(System.Type readerClass) {
+            String qualifiedName = readerClass.getName().toLowerCase();
+
+            return mockReader(
+                qualifiedName.contains('.')
+                    ? qualifiedName.split('\\.')[1]
+                    : qualifiedName
+            );
+        }
+
+        /** @description Use when you want to include the namespace; it gets stripped from method above */
+        public MockReader mockReader(String fullyQualifiedClassName) {
             MockReader mock = new MockReader();
-            readMocks.put(readerClass.getName().toLowerCase(), mock);
+            readMocks.put(fullyQualifiedClassName.toLowerCase(), mock);
 
             return mock;
         }
@@ -437,7 +450,7 @@ public virtual inherited sharing class Proxy {
             }
             // create the list for return and persist to readAudit
             List<SObject> result = this.readOptions.relayRead
-                ? this.readRecords
+                ? this.readRecords // TODO return read audit
                 : this.readRecords.deepClone(true, true, true);
             if (this.readAudit == null) {
                 this.readAudit = new List<List<SObject>>();
