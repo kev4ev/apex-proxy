@@ -398,16 +398,19 @@ public virtual inherited sharing class Proxy {
      */
     public virtual class MockReader implements Proxy.DbReader {
         /**************************************************
-         * CONSTRUCTORS AND INITIAL STATE
+         * INITIAL STATE
          **************************************************/
-        public MockReadOptions readOptions;
         public List<List<SObject>> readAudit { get; private set; }
+        private Object readContext;
+        private MockReadOptions readOptions {
+            get {
+                if (readOptions == null) {
+                    readOptions = new MockReadOptions(this);
+                }
 
-        public MockReader() {
-            this(new MockReadOptions());
-        }
-        public MockReader(MockReadOptions readOptions) {
-            this.readOptions = readOptions;
+                return readOptions;
+            }
+            set;
         }
 
         /**************************************************
@@ -416,17 +419,21 @@ public virtual inherited sharing class Proxy {
         private List<SObject> readRecords = new List<SObject>();
         private Map<Schema.SObjectType, List<Schema.ChildRelationship>> childrenRelMap = new Map<Schema.SObjectType, List<Schema.ChildRelationship>>();
         private Map<String, MockChildRecords> childMap = new Map<String, MockChildRecords>();
-        private Boolean testLimits = false;
         /** link-relevant state */
         private Integer reads = 0;
         private Integer linkAfterReads;
         private MockReader linked;
 
         /**************************************************
+         * SET OPTIONS
+         **************************************************/
+        public MockReadOptions setOptions() {
+            return this.readOptions;
+        }
+
+        /**************************************************
          * READER API - OVERRIDABLE IMPLEMENTATION
          **************************************************/
-
-        Object readContext;
 
         public virtual List<SObject> read(Object readContext) {
             this.readContext = readContext;
@@ -445,13 +452,14 @@ public virtual inherited sharing class Proxy {
                 return this.linked.read(this.readContext);
             }
             // conditionally mock limits
-            if (this.testLimits == true) {
+            if (this.readOptions.testLimits == true) {
                 Integer cnt = [SELECT COUNT() FROM Account LIMIT 1];
             }
+
             // create the list for return and persist to readAudit
-            List<SObject> result = this.readOptions.relayRead
-                ? this.readRecords // TODO return read audit
-                : this.readRecords.deepClone(true, true, true);
+            List<SObject> result = this.readOptions.cloneRead
+                ? this.readRecords.deepClone(true, true, true)
+                : this.readRecords;
             if (this.readAudit == null) {
                 this.readAudit = new List<List<SObject>>();
             }
@@ -466,7 +474,6 @@ public virtual inherited sharing class Proxy {
             if (this.readOptions.clearStateOnRead) {
                 this.readRecords.clear();
                 this.childMap.clear();
-                this.testLimits = false;
             }
             // handle linking state
             this.reads += 1;
@@ -489,6 +496,14 @@ public virtual inherited sharing class Proxy {
         /**************************************************
          * RESULT-BUILDER API
          **************************************************/
+
+        public MockReader addReadRecords(List<SObject> records) {
+            for (SObject record : records) {
+                addReadRecord(record);
+            }
+
+            return this;
+        }
 
         /**
          * Add the root record for the next read() invocation
@@ -670,32 +685,59 @@ public virtual inherited sharing class Proxy {
             // reset the record in the correct buildtime position
             this.readRecords[rootRecordPosition] = newRoot;
         }
+    }
 
+    /**
+     * @description Options for read operations during mocking
+     */
+    public class MockReadOptions {
+        private final MockReader reader;
         /**
-         * When invoked, a minimal overhead query will be executed for each call to read() such
+         * Read mode:
+         *   - in default (non-clone) mode the records returned are always the in-memory
+         * pointers to the original read records; useful to observe changes made
+         * in target code from unit tests without using readAdut
+         *   - in clone mode the read records are deep-cloned before return; use with caution
+         * as in most cases this is not necessary; link API can be used to similar effect
+         */
+        public Boolean cloneRead = false;
+        public Boolean clearStateOnRead = false;
+        public Boolean recaclFormulas = false;
+        /**
+         * @description when true, a minimal overhead query will be executed for each call to read() such
          * that limits testing can be simulated. Note that otal queries can be simulated but rows
          * retrieved cannot.
          */
-        public MockReader testLimits() {
-            this.testLimits = true;
+        public Boolean testLimits = false;
+
+        private MockReadOptions(MockReader reader) {
+            this.reader = reader;
+        }
+
+        public MockReader endSetOptions() {
+            return this.reader;
+        }
+
+        public MockReadOptions cloneRead(Boolean flag) {
+            this.cloneRead = flag;
 
             return this;
         }
-    }
 
-    public class MockReadOptions {
-        public Boolean clearStateOnRead = false;
-        public Boolean relayRead = false;
-        public Boolean recaclFormulas = false;
-        private MockReadOptions() {
-        }
         public MockReadOptions clearStateOnRead(Boolean flag) {
             this.clearStateOnRead = flag;
 
             return this;
         }
+
         public MockReadOptions recaclFormulas(Boolean flag) {
             this.recaclFormulas = flag;
+
+            return this;
+        }
+
+        public MockReadOptions testLimits(Boolean flag) {
+            this.testLimits = flag;
 
             return this;
         }

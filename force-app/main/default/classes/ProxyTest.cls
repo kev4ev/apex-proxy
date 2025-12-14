@@ -88,18 +88,24 @@ public inherited sharing class ProxyTest extends Proxy.MockReader {
 
     @isTest
     private static void dbRead_validateMockRead() {
-        Proxy.mock()
-            .mockReader(ProxyTest.class)
-            .addReadRecord(Proxy.mock.setFauxId(new Account()));
+        Proxy.MockReader mockReader = Proxy.mock().mockReader(ProxyTest.class);
+        String theOG = 'OG';
+        Account originAcct = new Account(Name = theOG);
+        mockReader.addReadRecord(Proxy.mock.setFauxId(originAcct))
+            // test clone mode first (not default) where each read returns a clone of the read record(s)
+            .setOptions()
+            .cloneRead(true)
+            .endSetOptions();
 
-        // assert "clean mode": 1 account returned and each read returns a clone of the read record
+        // assert "clone mode" first: 1 account returned and each read returns a clone of the read record
         ProxyTest reader = new ProxyTest();
         Account a0 = (Account) Proxy.db.read(reader)[0];
-        Assert.isNotNull(a0.Id);
-        a0.Name = 'Modified In-Memory';
         Account a1 = (Account) Proxy.db.read(reader)[0];
-        Assert.areEqual(a0.Id, a1.Id);
-        Assert.isNull(a1.Name);
+        Assert.areEqual(theOG, a1.Name);
+        // validate in-memory name change has no effect on cloned read
+        a1.Name = 'Clone1';
+        Account a2 = (Account) Proxy.db.read(reader)[0];
+        Assert.areEqual(theOG, a2.Name);
 
         // validate the readAudit
         Account audit0 = ((Account) Proxy.mock.readAudit.get('proxytest')
@@ -108,8 +114,15 @@ public inherited sharing class ProxyTest extends Proxy.MockReader {
         Account audit1 = ((Account) Proxy.mock.readAudit.get('proxytest')
             .get(1)
             .get(0));
-        Assert.isNotNull(audit0.Name);
-        Assert.isNull(audit1.Name);
+        Assert.areEqual(theOG, audit0.Name);
+        Assert.areEqual('Clone1', audit1.Name);
+
+        // now test regular mode where read returns the original records
+        mockReader.setOptions().cloneRead(false);
+        Account a3 = ((Account) Proxy.mock.readAudit.get('proxytest')
+            .get(0)
+            .get(0));
+        Assert.areEqual(theOG, a3.Name);
     }
 
     /********************************************
