@@ -198,7 +198,16 @@ public virtual inherited sharing class Proxy {
      ***********************/
 
     @testVisible
-    private static Mock mockSingleton = new Mock();
+    private static Mock mockSingleton {
+        get {
+            if (mockSingleton == null) {
+                mockSingleton = new Mock();
+            }
+
+            return mockSingleton;
+        }
+        set;
+    }
 
     /** @description Acts as a pseudo-ns */
     public static Mock mock {
