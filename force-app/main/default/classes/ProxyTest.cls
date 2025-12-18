@@ -29,8 +29,8 @@ public inherited sharing class ProxyTest extends Proxy.MockReader {
     @isTest
     private static void validateDefaultProxyIsSingleton() {
         // override DEF_PROXY and assert singleton is properly assigned
-        Proxy.DEF_PROXY = 'TestProxy.Base';
-        Assert.isTrue(Proxy.singleton instanceof TestProxy.Base);
+        Proxy.DEF_PROXY = 'Proxy.Mock';
+        Assert.isTrue(Proxy.singleton instanceof Proxy.Mock);
         // reset and test again
         Proxy.singleton = null;
         Proxy.DEF_PROXY = '';
