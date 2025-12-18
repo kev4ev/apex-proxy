@@ -1,4 +1,5 @@
 /**
+ * @version 2.0.0
  * @description Provides APIs for trapping database reads and writes and assignment operands.
  * Provided under the MIT License github.com/kev4ev/apex-proxy
  */
