@@ -8,7 +8,8 @@
   "scripts": {
     "sf:org:no-ns": "export NS_FLAG='--no-namespace'; npm run sf:org",
     "sf:org": "sf org create scratch -y 7 -a proxy0 -d -w 15 -f config/scratch-pkg-validation.json $NS_FLAG",
-    "sf:regression": "sf project deploy start -w 15 -d force-app; sf apex test run -w 15 -c -t TestProxy",
+    "sf:regression": "sf project deploy start -w 15 -d force-app; npm run sf:test",
+    "sf:test": "sf apex test run -w 15 -c -t ProxyTest",
     "version:cover": "export CODE_FLAG='--code-coverage'; npm run version:create",
     "version:create": "sf package version create -d force-app $CODE_FLAG -f config/scratch-pkg-validation.json -x -w 15"
   },

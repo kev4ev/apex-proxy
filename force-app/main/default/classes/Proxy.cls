@@ -522,7 +522,9 @@ public virtual inherited sharing class Proxy {
          **/
         public MockReader addReadRecord(SObject record) {
             // set a faux id
-            Proxy.mock.setFauxId(record);
+            if (String.isBlank(record.Id)) {
+                Proxy.mock.setFauxId(record);
+            }
             // conditionally add child meta
             Schema.SObjectType recordSobjectType = record.getSObjectType();
             if (!this.childrenRelMap.containsKey(recordSobjectType)) {
@@ -610,7 +612,9 @@ public virtual inherited sharing class Proxy {
             Integer rootRecordPosition
         ) {
             // set faux id
-            Proxy.mock.setFauxId(child);
+            if (String.isBlank(child.Id)) {
+                Proxy.mock.setFauxId(child);
+            }
             // find the relationship name
             SObject parent = this.readRecords.get(rootRecordPosition);
             Schema.SObjectType parentType = parent.getSObjectType();
@@ -663,7 +667,9 @@ public virtual inherited sharing class Proxy {
             Integer rootRecordPosition
         ) {
             // set faux id
-            Proxy.mock.setFauxId(parent);
+            if (String.isBlank(parent.Id)) {
+                Proxy.mock.setFauxId(parent);
+            }
             // normalize relationship name
             String rawName = field.getDescribe().getName();
             String relName = rawName.endsWith('__c')
