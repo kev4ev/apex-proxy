@@ -291,6 +291,31 @@ public virtual inherited sharing class Proxy {
             return fauxId;
         }
 
+        /**
+         * @description "static" helper to relate dynamically relate child to parent
+         */
+        public SObject relateParent(
+            SObject child,
+            SObject parent,
+            Schema.SObjectField relationField
+        ) {
+            // create throwaway MockReader
+            MockReader reader = new MockReader();
+            reader.addReadRecord(child).relateParent(parent, relationField);
+
+            return reader.readRecords[0];
+        }
+
+        /**
+         * @description "static" helper to relate dynamically relate parent to child
+         */
+        public SObject relateParent(SObject parent, SObject child) {
+            // create throwaway MockReader
+            MockReader reader = new MockReader();
+            reader.addReadRecord(parent).relateChild(child);
+
+            return reader.readRecords[0];
+        }
         /******************************************************************
          * MOCK REFLECT API: allows extending class to override
          ******************************************************************/
@@ -311,6 +336,12 @@ public virtual inherited sharing class Proxy {
             this.trapAudit.put(key ?? '', value);
         }
 
+        /** @description use to introspect a value passed to the reflect api with this key */
+        public void trapMock(String key) {
+            trapMock(key, null);
+        }
+
+        /** @description use to **replace the return value** of a value passed to the reflect api with this key */
         public void trapMock(String key, Object value) {
             trapMocks.put(key, value);
         }
