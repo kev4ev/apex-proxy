@@ -57,9 +57,9 @@ public virtual inherited sharing class Proxy {
      *   3. mock (only available during unit test execution)
      ****************************************************************************************/
 
-    /**********************
+    /****************************************************************************************
      * REFLECT API
-     ***********************/
+     ****************************************************************************************/
 
     /** @description a simple API for trapping and reflecting values in setters */
     public static Object reflect(Object value) {
@@ -74,9 +74,9 @@ public virtual inherited sharing class Proxy {
         return singleton.trap(value, key);
     }
 
-    /**********************
+    /****************************************************************************************
      * DB API
-     ***********************/
+     ****************************************************************************************/
 
     public static final Db db = new Db();
 
@@ -88,9 +88,9 @@ public virtual inherited sharing class Proxy {
         private Db() {
         }
 
-        /**********************
+        /****************************************************************************************
          * READ API
-         ***********************/
+         ****************************************************************************************/
 
         public List<SObject> read(DbReader reader) {
             return this.read(reader, null);
@@ -100,9 +100,9 @@ public virtual inherited sharing class Proxy {
             return singleton.read(reader, readContext);
         }
 
-        /**********************
+        /****************************************************************************************
          * WRITE API
-         ***********************/
+         ****************************************************************************************/
 
         public List<Database.SaveResult> insertRecords(List<SObject> records) {
             return singleton.insertRecords(records);
@@ -127,9 +127,9 @@ public virtual inherited sharing class Proxy {
         }
     }
 
-    /*********************************
+    /****************************************************************************************
      * OVERRIDEABLE METHODS
-     *********************************/
+     ****************************************************************************************/
 
     /**
      * @description reflect API implementation - allows you to trap a value
@@ -180,9 +180,9 @@ public virtual inherited sharing class Proxy {
         return System.Database.undelete(records);
     }
 
-    /**********************
+    /****************************************************************************************
      * HELPER METHODS
-     ***********************/
+     ****************************************************************************************/
 
     /** @description common api for classname introspection - ONLY returns inner class name if not a top-level class */
     public static String introspectName(Object instance) {
@@ -194,9 +194,9 @@ public virtual inherited sharing class Proxy {
         return String.valueOf(instance).split(':')[0];
     }
 
-    /**********************
+    /****************************************************************************************
      * MOCK API
-     ***********************/
+     ****************************************************************************************/
 
     @testVisible
     private static Mock mockSingleton {
