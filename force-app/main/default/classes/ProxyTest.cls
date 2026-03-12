@@ -88,6 +88,59 @@ public inherited sharing class ProxyTest extends Proxy.MockReader {
     }
 
     @isTest
+    /**
+     * @description Validates that the inline-style read returns the passed-in records
+     * when no mock is active (base Proxy passthrough behavior).
+     */
+    private static void dbRead_inlineStyle_nonMocked_returnsPassthrough() {
+        List<Account> accts = new List<Account>{ new Account(Name = 'Test') };
+        List<SObject> result = Proxy.db.read(accts, ProxyTest.class);
+        Assert.areEqual(accts, result);
+    }
+
+    @isTest
+    /**
+     * @description Validates that the inline-style read returns the passed-in records
+     * when mocked but no MockReader is registered for the caller type.
+     */
+    private static void dbRead_inlineStyle_mockedNoRegistration_returnsPassthrough() {
+        Proxy.mock();
+        List<Account> accts = new List<Account>{
+            new Account(Name = 'Fallback')
+        };
+        List<SObject> result = Proxy.db.read(accts, ProxyTest.class);
+        Assert.areEqual(accts, result);
+    }
+
+    @isTest
+    /**
+     * @description Validates that the inline-style read:
+     *   (1) returns mocked records when a MockReader is registered for the caller type
+     *   (2) populates readAudit keyed by caller class name
+     */
+    private static void dbRead_inlineStyle_mockedWithRegistration_returnsMockedRecords() {
+        Proxy.MockReader mockReader = Proxy.mock().mockReader(ProxyTest.class);
+        String mockAcctName = 'Mocked Account';
+        mockReader.addReadRecord(new Account(Name = mockAcctName));
+
+        List<Account> passedRecords = new List<Account>{
+            new Account(Name = 'Original')
+        };
+        List<SObject> result = Proxy.db.read(passedRecords, ProxyTest.class);
+
+        Assert.areEqual(1, result.size());
+        Assert.areEqual(mockAcctName, ((Account) result[0]).Name);
+
+        // validate readAudit is keyed by caller name (lowercased)
+        String callerKey = ProxyTest.class.getName().toLowerCase();
+        Assert.isNotNull(Proxy.mock.readAudit.get(callerKey));
+        Assert.areEqual(
+            mockAcctName,
+            ((Account) Proxy.mock.readAudit.get(callerKey).get(0).get(0)).Name
+        );
+    }
+
+    @isTest
     private static void dbRead_validateMockRead() {
         Proxy.MockReader mockReader = Proxy.mock().mockReader(ProxyTest.class);
         String theOG = 'OG';
