@@ -20,7 +20,32 @@ This will copy `Proxy.cls` and `ProxyTest.cls` (and their metadata files) into t
 
 Route all database interactions through the `Proxy` APIs in your production code. This allows unit tests to intercept and stub those calls without any changes to your business logic.
 
-**Implement `Proxy.DbReader` for SOQL reads:**
+#### Read Styles
+
+There are two ways to route SOQL reads through the proxy. Choose the one that best fits your codebase.
+
+---
+
+**Inline style** — keep the query where it is, pass the results and the calling class through the proxy. Best for greenfield code or quick adoption since no interface implementation is required.
+
+```java
+public class AccountService {
+    public List<Account> getAccounts(String filter) {
+        // Pass results AND this class's type so tests can intercept by caller
+        return Proxy.db.read(
+            [SELECT Id, Name FROM Account WHERE Name LIKE :filter],
+            AccountService.class
+            filter /** optionally pass read context */
+        );
+    }
+}
+```
+
+In production the proxy is a transparent pass-through — `results` is returned unchanged and the second and (optional) third arguments are ignored. In tests, any `MockReader` registered for `AccountService` takes over (see [unit tests](#unit-tests) below).
+
+---
+
+**Implementation style** — move the query into a dedicated class that implements `Proxy.DbReader`. Best for orgs where an existing framework or selector pattern (e.g. FFLIB) is established or when you want to reuse a reader across multiple classes.
 
 ```java
 public class AccountReader implements Proxy.DbReader {
@@ -76,6 +101,15 @@ Call `Proxy.mock()` at the start of each test to activate mock mode. In mock mod
 - All `Proxy.db` write operations return empty result lists of the correct type — no database activity occurs.
 - `Proxy.db.read()` returns whatever you configure via `mockReader()`.
 - `Proxy.reflect()` returns the original value unless you stub it with `trapMock()`.
+
+> **Heads up — reader lookup uses the innermost class name only.**
+> When you call `Proxy.mock().mockReader(SomeClass.class)`, the proxy registers the mock under the _innermost_ class name, lowercased. Namespaces and outer class qualifiers are stripped. So `MyNamespace.OuterClass.AccountReader` is looked up as `accountreader`, the same key as a top-level `AccountReader`.
+>
+> This applies to BOTH the inline and implementation read styles:
+>
+> Therefore be mindful of **naming conflicts within a given unit test**. For example, if you're mocking both a top-level class, `AccountReader`, and an inner class `ContactSelector.AccountReader` **these will generate a naming conflict during testing.**
+>
+> The best way to avoid this conflict by splitting your unit test logic into multiple tests but, where not feasible, there are other approaches such as utilizing a single MockReader for overlapping mocks and returning results based on the readContext (assuming it is passed).
 
 **Stubbing a SOQL read:**
 
