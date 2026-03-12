@@ -206,17 +206,30 @@ public virtual inherited sharing class Proxy {
     }
 
     /****************************************************************************************
-     * HELPER METHODS
+     * HELPER METHODS: for name introspection and normalization. Due to limitations in the
+     * Apex runtime and to keep behavior consistent between INLINE and IMPLEMENTATION read
+     * styles, class names are always normalized to their INNERMOST class name. Take care if
+     * you are mocking several classes in the same test method as this could lead to conflicts.
      ****************************************************************************************/
 
-    /** @description common api for classname introspection - ONLY returns inner class name if not a top-level class */
-    public static String introspectName(Object instance) {
-        return singleton.getClassName(instance);
+    /** @description returns innermost class name if not a top-level class; strips namespaces */
+    public static String normalizeClassName(Object instance) {
+        String raw = String.valueOf(instance);
+        List<String> parts = raw.split(':');
+
+        return normalizeClassName(parts[0]);
     }
 
-    /** @description provided for backward compat */
-    protected String getClassName(Object instance) {
-        return String.valueOf(instance).split(':')[0];
+    /** @description returns innermost class name if not a top-level class; strips namespaces */
+    public static String normalizeClassName(System.Type type) {
+        return normalizeClassName(type.getName());
+    }
+
+    private static String normalizeClassName(String qualifiedName) {
+        List<String> parts = qualifiedName.split('\\.');
+        String innermost = parts.get(parts.size() - 1);
+
+        return innermost.toLowerCase();
     }
 
     /****************************************************************************************
@@ -381,7 +394,7 @@ public virtual inherited sharing class Proxy {
             System.Type caller,
             Object readContext
         ) {
-            String callerName = caller.getName().toLowerCase();
+            String callerName = normalizeClassName(caller);
             // return either the previously-suplied mock reader or the passed one
             MockReader mocker = readMocks.get(callerName);
             List<SObject> readRecords = mocker?.read(readContext) ?? records;
@@ -395,7 +408,7 @@ public virtual inherited sharing class Proxy {
             DbReader reader,
             Object readContext
         ) {
-            String readerName = getClassName(reader).toLowerCase();
+            String readerName = normalizeClassName(reader);
             // return either the previously-suplied mock reader or the passed one
             MockReader mocker = readMocks.get(readerName);
             List<SObject> readRecords = mocker?.read(readContext) ??
@@ -415,23 +428,14 @@ public virtual inherited sharing class Proxy {
             this.readAudit.get(readerName).add(readRecords);
         }
 
-        /** @description Use when you want mocking a class in the same namespace only */
-        public MockReader mockReader(System.Type readerClass) {
-            String qualifiedName = readerClass.getName().toLowerCase();
+        /** @description Generate a MockReader instance for the Type to mock */
+        public MockReader mockReader(System.Type readerType) {
+            MockReader mocker = new MockReader();
+            String fullyQualifiedName = readerType.getName();
+            String normalizedName = normalizeClassName(readerType);
+            readMocks.put(normalizedName, mocker);
 
-            return mockReader(
-                qualifiedName.contains('.')
-                    ? qualifiedName.split('\\.')[1]
-                    : qualifiedName
-            );
-        }
-
-        /** @description Use when you want to include the namespace; it gets stripped from method above */
-        public MockReader mockReader(String fullyQualifiedClassName) {
-            MockReader mock = new MockReader();
-            readMocks.put(fullyQualifiedClassName.toLowerCase(), mock);
-
-            return mock;
+            return mocker;
         }
 
         /******************************************************************

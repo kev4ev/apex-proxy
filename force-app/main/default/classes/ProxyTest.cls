@@ -67,8 +67,8 @@ public inherited sharing class ProxyTest extends Proxy.MockReader {
         Assert.isTrue(Proxy.singleton instanceof Proxy.Mock);
         Proxy.mock(new CustomMock());
         Assert.areEqual(
-            'CustomMock',
-            Proxy.introspectName(Proxy.mockSingleton)
+            'CustomMock'.toLowerCase(),
+            Proxy.normalizeClassName(Proxy.mockSingleton)
         );
         Assert.isTrue(Proxy.mockSingleton instanceof CustomMock);
         Assert.isTrue(Proxy.singleton instanceof CustomMock);
@@ -113,6 +113,21 @@ public inherited sharing class ProxyTest extends Proxy.MockReader {
     }
 
     @isTest
+    private static void validateInner() {
+        Proxy.mock()
+            .mockReader(InnerClass.class)
+            .addReadRecord(new Account(Name = 'Inner Mock'));
+        List<Account> accts = Proxy.db.read(new InnerClass());
+        Proxy.db.read([SELECT id FROM account LIMIT 1], InnerClass.class);
+    }
+
+    private class InnerClass implements Proxy.DbReader {
+        public List<SObject> read(Object ctx) {
+            return null;
+        }
+    }
+
+    @isTest
     /**
      * @description Validates that the inline-style read:
      *   (1) returns mocked records when a MockReader is registered for the caller type
@@ -132,7 +147,7 @@ public inherited sharing class ProxyTest extends Proxy.MockReader {
         Assert.areEqual(mockAcctName, ((Account) result[0]).Name);
 
         // validate readAudit is keyed by caller name (lowercased)
-        String callerKey = ProxyTest.class.getName().toLowerCase();
+        String callerKey = Proxy.normalizeClassName(ProxyTest.class);
         Assert.isNotNull(Proxy.mock.readAudit.get(callerKey));
         Assert.areEqual(
             mockAcctName,
@@ -213,7 +228,7 @@ public inherited sharing class ProxyTest extends Proxy.MockReader {
 
         public override List<SObject> read(Proxy.DbReader reader, Object ctx) {
             // capture classname for assertion
-            readerClassName = getClassName(reader);
+            readerClassName = Proxy.normalizeClassName(reader);
 
             Proxy.MockReader mockRead = new Proxy.MockReader();
             // return 5 Accounts that each have a parent and 5 child Contacts
@@ -300,7 +315,7 @@ public inherited sharing class ProxyTest extends Proxy.MockReader {
         // set singleton mock and invoke target
         Proxy.singleton = new CustomMock();
         new MockTarget().getAccountsAndChildren();
-        Assert.areEqual('MockTarget', readerClassName); // inner class name, but won't print
+        Assert.areEqual('MockTarget'.toLowerCase(), readerClassName); // inner class name, but won't print
     }
 
     @isTest
