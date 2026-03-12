@@ -92,6 +92,22 @@ public virtual inherited sharing class Proxy {
          * READ API
          ****************************************************************************************/
 
+        /** INLINE STYLE: best for greenfield and/or quick implementations */
+
+        public List<SObject> read(List<SObject> records, System.Type caller) {
+            return this.read(records, caller, null);
+        }
+
+        public List<SObject> read(
+            List<SObject> records,
+            System.Type caller,
+            Object readContext
+        ) {
+            return singleton.read(records, caller, readContext);
+        }
+
+        /** IMPLEMENTATION STYLE: best for use with existing frameworks or patterns like FFLIB / Selector pattern */
+
         public List<SObject> read(DbReader reader) {
             return this.read(reader, null);
         }
@@ -140,7 +156,16 @@ public virtual inherited sharing class Proxy {
         return value;
     }
 
-    /** @description db.read() implementation */
+    /** @description db.read() INLINE-STYLE */
+    public virtual List<SObject> read(
+        List<SObject> records,
+        System.Type caller,
+        Object readContext
+    ) {
+        return records;
+    }
+
+    /** @description db.read() IMPLEMENTATION-STYLE */
     public virtual List<SObject> read(DbReader reader, Object readContext) {
         return reader.read(readContext);
     }
@@ -350,6 +375,22 @@ public virtual inherited sharing class Proxy {
          * MOCK READ API: allows extending class to override
          ******************************************************************/
 
+        /** @description db.read() mock INLINE-STYLE */
+        public override List<SObject> read(
+            List<SObject> records,
+            System.Type caller,
+            Object readContext
+        ) {
+            String callerName = caller.getName().toLowerCase();
+            // return either the previously-suplied mock reader or the passed one
+            MockReader mocker = readMocks.get(callerName);
+            List<SObject> readRecords = mocker?.read(readContext) ?? records;
+            readAudit(callerName, readRecords);
+
+            return readRecords;
+        }
+
+        /** @description db.read() mock IMPLEMENTATION-STYLE */
         public virtual override List<SObject> read(
             DbReader reader,
             Object readContext
@@ -476,9 +517,12 @@ public virtual inherited sharing class Proxy {
          * READER API - OVERRIDABLE IMPLEMENTATION
          **************************************************/
 
+        /**
+         * @description !!Important!! readContext is discarded in default implementation.
+         * override if you need to utilize it
+         */
         public virtual List<SObject> read(Object readContext) {
             this.readContext = readContext;
-            // readContext is discarded in default implementation - override to utilize it
             return read();
         }
 
