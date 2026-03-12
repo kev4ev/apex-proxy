@@ -44,7 +44,7 @@ public class AccountService {
 }
 ```
 
-See [unit tests](#unit-tests) below to see how easily you can now stub query results during test execution.
+Read on in [unit tests](#unit-tests) below to see how easily you can now stub query results during test execution.
 
 **Use `Proxy.reflect()` to trap value assignment in setters or variables.** This is only necessary if you wish to mock the value set during unit testing.
 

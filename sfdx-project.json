@@ -1,9 +1,6 @@
 {
   "packageDirectories": [
     {
-      "path": "examples"
-    },
-    {
       "path": "force-app",
       "default": true,
       "package": "Proxy",
