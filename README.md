@@ -4,6 +4,16 @@ Apex unit tests - they're a fact of life for Salesforce developers. But have you
 
 If your unit tests are writing and reading from the database, chances are what you're really writing are _integration tests_. The proxy pattern allows you to optimize your unit tests for performance, stability, and isolation.
 
+## Progressive Adoption
+
+Proxy is designed for progressive adoption — you don't need to refactor your entire codebase to start benefiting from it.
+
+**Drop it into existing classes with minimal changes.** The inline read style requires no new interfaces or class restructuring. Add a `Proxy.db.read()` call around your existing SOQL and pass the calling class type — that's it. Your production behavior is unchanged (the proxy is a transparent pass-through when not mocking), and your tests gain the ability to stub query results without touching the database.
+
+**Start small.** You can adopt Proxy one class, one method, or even one query at a time. Tests for un-proxied code continue to work exactly as before.
+
+**Works with established patterns too.** If your org already uses a Selector layer or a framework like [fflib](https://github.com/apex-enterprise-patterns/fflib-apex-common), use the implementation style — implement `Proxy.DbReader` in your existing selector classes. Proxy slots in without displacing your architecture.
+
 ## Installation
 
 From the root of your Salesforce DX project (the directory containing `sfdx-project.json`), run:
