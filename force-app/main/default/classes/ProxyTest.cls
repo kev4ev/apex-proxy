@@ -464,6 +464,63 @@ public inherited sharing class ProxyTest extends Proxy.MockReader {
         Proxy.db.undeleteRecords(fakeId, false, System.AccessLevel.SYSTEM_MODE);
     }
 
+    /** Covers single-record and single-Id non-mocked overloads against actual DML (base Proxy virtual methods) */
+    @isTest
+    private static void db_singleRecord_nonMocked_allOverloads() {
+        Database.DMLOptions opts = new Database.DMLOptions();
+        // insert single - all 5 overloads
+        Account a1 = new Account(Name = 'NM-I1');
+        Assert.isTrue(Proxy.db.insertRecords(a1).isSuccess());
+        Account a2 = new Account(Name = 'NM-I2');
+        Assert.isTrue(Proxy.db.insertRecords(a2, false).isSuccess());
+        Account a3 = new Account(Name = 'NM-I3');
+        Assert.isTrue(Proxy.db.insertRecords(a3, opts).isSuccess());
+        Account a4 = new Account(Name = 'NM-I4');
+        Assert.isTrue(Proxy.db.insertRecords(a4, false, System.AccessLevel.SYSTEM_MODE).isSuccess());
+        Account a5 = new Account(Name = 'NM-I5');
+        Assert.isTrue(Proxy.db.insertRecords(a5, opts, System.AccessLevel.SYSTEM_MODE).isSuccess());
+        // update single - all 5 overloads
+        a1.Name += 'U';
+        Assert.isTrue(Proxy.db.updateRecords(a1).isSuccess());
+        a2.Name += 'U';
+        Assert.isTrue(Proxy.db.updateRecords(a2, false).isSuccess());
+        a3.Name += 'U';
+        Assert.isTrue(Proxy.db.updateRecords(a3, opts).isSuccess());
+        a4.Name += 'U';
+        Assert.isTrue(Proxy.db.updateRecords(a4, false, System.AccessLevel.SYSTEM_MODE).isSuccess());
+        a5.Name += 'U';
+        Assert.isTrue(Proxy.db.updateRecords(a5, opts, System.AccessLevel.SYSTEM_MODE).isSuccess());
+        // upsert single - all 6 overloads (null externalIdField invokes standard upsert path)
+        Account u1 = new Account(Name = 'NM-U1');
+        Assert.isTrue(Proxy.db.upsertRecords(u1).isSuccess());
+        Account u2 = new Account(Name = 'NM-U2');
+        Assert.isTrue(Proxy.db.upsertRecords(u2, false).isSuccess());
+        Account u3 = new Account(Name = 'NM-U3');
+        Assert.isTrue(Proxy.db.upsertRecords(u3, (Schema.SObjectField) null).isSuccess());
+        Account u4 = new Account(Name = 'NM-U4');
+        Assert.isTrue(Proxy.db.upsertRecords(u4, (Schema.SObjectField) null, false).isSuccess());
+        Account u5 = new Account(Name = 'NM-U5');
+        Assert.isTrue(Proxy.db.upsertRecords(u5, false, System.AccessLevel.SYSTEM_MODE).isSuccess());
+        Account u6 = new Account(Name = 'NM-U6');
+        Assert.isTrue(Proxy.db.upsertRecords(u6, (Schema.SObjectField) null, false, System.AccessLevel.SYSTEM_MODE).isSuccess());
+        // delete single SObject - 3 overloads
+        Assert.isTrue(Proxy.db.deleteRecords(a1).isSuccess());
+        Assert.isTrue(Proxy.db.deleteRecords(a2, false).isSuccess());
+        Assert.isTrue(Proxy.db.deleteRecords(a3, false, System.AccessLevel.SYSTEM_MODE).isSuccess());
+        // delete single Id - 3 overloads
+        Assert.isTrue(Proxy.db.deleteRecords(a4.Id).isSuccess());
+        Assert.isTrue(Proxy.db.deleteRecords(a5.Id, false).isSuccess());
+        Assert.isTrue(Proxy.db.deleteRecords(u1.Id, false, System.AccessLevel.SYSTEM_MODE).isSuccess());
+        // undelete single SObject - 3 overloads
+        Assert.isTrue(Proxy.db.undeleteRecords(a1).isSuccess());
+        Assert.isTrue(Proxy.db.undeleteRecords(a2, false).isSuccess());
+        Assert.isTrue(Proxy.db.undeleteRecords(a3, false, System.AccessLevel.SYSTEM_MODE).isSuccess());
+        // undelete single Id - 3 overloads
+        Assert.isTrue(Proxy.db.undeleteRecords(a4.Id).isSuccess());
+        Assert.isTrue(Proxy.db.undeleteRecords(a5.Id, false).isSuccess());
+        Assert.isTrue(Proxy.db.undeleteRecords(u1.Id, false, System.AccessLevel.SYSTEM_MODE).isSuccess());
+    }
+
     /** Covers no-arg single-record and no-arg list-Id delegating overloads with mock */
     @isTest
     private static void db_coverWrite_noArgDelegates_mocked() {
