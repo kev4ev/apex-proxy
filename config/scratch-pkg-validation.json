@@ -1,7 +1,7 @@
 {
   "orgName": "ApexProxy",
   "description": "Used to validate the required features for subscriber orgs when creating a new package version",
-  "edition": "Enterprise",
+  "edition": "enterprise",
   "features": [
     "API",
     "CustomNotificationType",
