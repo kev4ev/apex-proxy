@@ -120,26 +120,187 @@ public virtual inherited sharing class Proxy {
          * WRITE API
          ****************************************************************************************/
 
+        // insert - single record
+        public Database.SaveResult insertRecords(SObject record) {
+            return singleton.insertRecords(record);
+        }
+        public Database.SaveResult insertRecords(SObject record, Boolean allOrNone) {
+            return singleton.insertRecords(record, allOrNone);
+        }
+        public Database.SaveResult insertRecords(SObject record, Database.DMLOptions dmlOptions) {
+            return singleton.insertRecords(record, dmlOptions);
+        }
+        public Database.SaveResult insertRecords(SObject record, Boolean allOrNone, System.AccessLevel accessLevel) {
+            return singleton.insertRecords(record, allOrNone, accessLevel);
+        }
+        public Database.SaveResult insertRecords(SObject record, Database.DMLOptions dmlOptions, System.AccessLevel accessLevel) {
+            return singleton.insertRecords(record, dmlOptions, accessLevel);
+        }
+        // insert - list
         public List<Database.SaveResult> insertRecords(List<SObject> records) {
             return singleton.insertRecords(records);
         }
+        public List<Database.SaveResult> insertRecords(List<SObject> records, Boolean allOrNone) {
+            return singleton.insertRecords(records, allOrNone);
+        }
+        public List<Database.SaveResult> insertRecords(List<SObject> records, Database.DMLOptions dmlOptions) {
+            return singleton.insertRecords(records, dmlOptions);
+        }
+        public List<Database.SaveResult> insertRecords(List<SObject> records, Boolean allOrNone, System.AccessLevel accessLevel) {
+            return singleton.insertRecords(records, allOrNone, accessLevel);
+        }
+        public List<Database.SaveResult> insertRecords(List<SObject> records, Database.DMLOptions dmlOptions, System.AccessLevel accessLevel) {
+            return singleton.insertRecords(records, dmlOptions, accessLevel);
+        }
+        // update - single record
+        public Database.SaveResult updateRecords(SObject record) {
+            return singleton.updateRecords(record);
+        }
+        public Database.SaveResult updateRecords(SObject record, Boolean allOrNone) {
+            return singleton.updateRecords(record, allOrNone);
+        }
+        public Database.SaveResult updateRecords(SObject record, Database.DMLOptions dmlOptions) {
+            return singleton.updateRecords(record, dmlOptions);
+        }
+        public Database.SaveResult updateRecords(SObject record, Boolean allOrNone, System.AccessLevel accessLevel) {
+            return singleton.updateRecords(record, allOrNone, accessLevel);
+        }
+        public Database.SaveResult updateRecords(SObject record, Database.DMLOptions dmlOptions, System.AccessLevel accessLevel) {
+            return singleton.updateRecords(record, dmlOptions, accessLevel);
+        }
+        // update - list
         public List<Database.SaveResult> updateRecords(List<SObject> records) {
             return singleton.updateRecords(records);
         }
-        public List<Database.UpsertResult> upsertRecords(
-            List<SObject> records
-        ) {
+        public List<Database.SaveResult> updateRecords(List<SObject> records, Boolean allOrNone) {
+            return singleton.updateRecords(records, allOrNone);
+        }
+        public List<Database.SaveResult> updateRecords(List<SObject> records, Database.DMLOptions dmlOptions) {
+            return singleton.updateRecords(records, dmlOptions);
+        }
+        public List<Database.SaveResult> updateRecords(List<SObject> records, Boolean allOrNone, System.AccessLevel accessLevel) {
+            return singleton.updateRecords(records, allOrNone, accessLevel);
+        }
+        public List<Database.SaveResult> updateRecords(List<SObject> records, Database.DMLOptions dmlOptions, System.AccessLevel accessLevel) {
+            return singleton.updateRecords(records, dmlOptions, accessLevel);
+        }
+        // upsert - single record
+        public Database.UpsertResult upsertRecords(SObject record) {
+            return singleton.upsertRecords(record);
+        }
+        public Database.UpsertResult upsertRecords(SObject record, Boolean allOrNone) {
+            return singleton.upsertRecords(record, allOrNone);
+        }
+        public Database.UpsertResult upsertRecords(SObject record, Schema.SObjectField externalIdField) {
+            return singleton.upsertRecords(record, externalIdField);
+        }
+        public Database.UpsertResult upsertRecords(SObject record, Schema.SObjectField externalIdField, Boolean allOrNone) {
+            return singleton.upsertRecords(record, externalIdField, allOrNone);
+        }
+        public Database.UpsertResult upsertRecords(SObject record, Boolean allOrNone, System.AccessLevel accessLevel) {
+            return singleton.upsertRecords(record, allOrNone, accessLevel);
+        }
+        public Database.UpsertResult upsertRecords(SObject record, Schema.SObjectField externalIdField, Boolean allOrNone, System.AccessLevel accessLevel) {
+            return singleton.upsertRecords(record, externalIdField, allOrNone, accessLevel);
+        }
+        // upsert - list
+        public List<Database.UpsertResult> upsertRecords(List<SObject> records) {
             return singleton.upsertRecords(records);
         }
-        public List<Database.DeleteResult> deleteRecords(
-            List<SObject> records
-        ) {
+        public List<Database.UpsertResult> upsertRecords(List<SObject> records, Boolean allOrNone) {
+            return singleton.upsertRecords(records, allOrNone);
+        }
+        public List<Database.UpsertResult> upsertRecords(List<SObject> records, Schema.SObjectField externalIdField) {
+            return singleton.upsertRecords(records, externalIdField);
+        }
+        public List<Database.UpsertResult> upsertRecords(List<SObject> records, Schema.SObjectField externalIdField, Boolean allOrNone) {
+            return singleton.upsertRecords(records, externalIdField, allOrNone);
+        }
+        public List<Database.UpsertResult> upsertRecords(List<SObject> records, Boolean allOrNone, System.AccessLevel accessLevel) {
+            return singleton.upsertRecords(records, allOrNone, accessLevel);
+        }
+        public List<Database.UpsertResult> upsertRecords(List<SObject> records, Schema.SObjectField externalIdField, Boolean allOrNone, System.AccessLevel accessLevel) {
+            return singleton.upsertRecords(records, externalIdField, allOrNone, accessLevel);
+        }
+        // delete - single SObject
+        public Database.DeleteResult deleteRecords(SObject record) {
+            return singleton.deleteRecords(record);
+        }
+        public Database.DeleteResult deleteRecords(SObject record, Boolean allOrNone) {
+            return singleton.deleteRecords(record, allOrNone);
+        }
+        public Database.DeleteResult deleteRecords(SObject record, Boolean allOrNone, System.AccessLevel accessLevel) {
+            return singleton.deleteRecords(record, allOrNone, accessLevel);
+        }
+        // delete - single Id
+        public Database.DeleteResult deleteRecords(Id recordId) {
+            return singleton.deleteRecords(recordId);
+        }
+        public Database.DeleteResult deleteRecords(Id recordId, Boolean allOrNone) {
+            return singleton.deleteRecords(recordId, allOrNone);
+        }
+        public Database.DeleteResult deleteRecords(Id recordId, Boolean allOrNone, System.AccessLevel accessLevel) {
+            return singleton.deleteRecords(recordId, allOrNone, accessLevel);
+        }
+        // delete - list SObject
+        public List<Database.DeleteResult> deleteRecords(List<SObject> records) {
             return singleton.deleteRecords(records);
         }
-        public List<Database.UndeleteResult> undeleteRecords(
-            List<SObject> records
-        ) {
+        public List<Database.DeleteResult> deleteRecords(List<SObject> records, Boolean allOrNone) {
+            return singleton.deleteRecords(records, allOrNone);
+        }
+        public List<Database.DeleteResult> deleteRecords(List<SObject> records, Boolean allOrNone, System.AccessLevel accessLevel) {
+            return singleton.deleteRecords(records, allOrNone, accessLevel);
+        }
+        // delete - list Id
+        public List<Database.DeleteResult> deleteRecords(List<Id> recordIds) {
+            return singleton.deleteRecords(recordIds);
+        }
+        public List<Database.DeleteResult> deleteRecords(List<Id> recordIds, Boolean allOrNone) {
+            return singleton.deleteRecords(recordIds, allOrNone);
+        }
+        public List<Database.DeleteResult> deleteRecords(List<Id> recordIds, Boolean allOrNone, System.AccessLevel accessLevel) {
+            return singleton.deleteRecords(recordIds, allOrNone, accessLevel);
+        }
+        // undelete - single SObject
+        public Database.UndeleteResult undeleteRecords(SObject record) {
+            return singleton.undeleteRecords(record);
+        }
+        public Database.UndeleteResult undeleteRecords(SObject record, Boolean allOrNone) {
+            return singleton.undeleteRecords(record, allOrNone);
+        }
+        public Database.UndeleteResult undeleteRecords(SObject record, Boolean allOrNone, System.AccessLevel accessLevel) {
+            return singleton.undeleteRecords(record, allOrNone, accessLevel);
+        }
+        // undelete - single Id
+        public Database.UndeleteResult undeleteRecords(Id recordId) {
+            return singleton.undeleteRecords(recordId);
+        }
+        public Database.UndeleteResult undeleteRecords(Id recordId, Boolean allOrNone) {
+            return singleton.undeleteRecords(recordId, allOrNone);
+        }
+        public Database.UndeleteResult undeleteRecords(Id recordId, Boolean allOrNone, System.AccessLevel accessLevel) {
+            return singleton.undeleteRecords(recordId, allOrNone, accessLevel);
+        }
+        // undelete - list SObject
+        public List<Database.UndeleteResult> undeleteRecords(List<SObject> records) {
             return singleton.undeleteRecords(records);
+        }
+        public List<Database.UndeleteResult> undeleteRecords(List<SObject> records, Boolean allOrNone) {
+            return singleton.undeleteRecords(records, allOrNone);
+        }
+        public List<Database.UndeleteResult> undeleteRecords(List<SObject> records, Boolean allOrNone, System.AccessLevel accessLevel) {
+            return singleton.undeleteRecords(records, allOrNone, accessLevel);
+        }
+        // undelete - list Id
+        public List<Database.UndeleteResult> undeleteRecords(List<Id> recordIds) {
+            return singleton.undeleteRecords(recordIds);
+        }
+        public List<Database.UndeleteResult> undeleteRecords(List<Id> recordIds, Boolean allOrNone) {
+            return singleton.undeleteRecords(recordIds, allOrNone);
+        }
+        public List<Database.UndeleteResult> undeleteRecords(List<Id> recordIds, Boolean allOrNone, System.AccessLevel accessLevel) {
+            return singleton.undeleteRecords(recordIds, allOrNone, accessLevel);
         }
     }
 
@@ -170,39 +331,195 @@ public virtual inherited sharing class Proxy {
         return reader.read(readContext);
     }
 
-    /** @description db.insertRecords() implementation */
-    public virtual List<Database.SaveResult> insertRecords(
-        List<SObject> records
-    ) {
-        return System.Database.insert(records);
+    // insert - single record
+    public virtual Database.SaveResult insertRecords(SObject record) {
+        return insertRecords(record, false);
     }
-
-    /** @description db.updateRecords() implementation */
-    public virtual List<Database.SaveResult> updateRecords(
-        List<SObject> records
-    ) {
-        return System.Database.update(records);
+    public virtual Database.SaveResult insertRecords(SObject record, Boolean allOrNone) {
+        return System.Database.insert(record, allOrNone);
     }
-
-    /** @description db.upsertRecords() implementation */
-    public virtual List<Database.UpsertResult> upsertRecords(
-        List<SObject> records
-    ) {
-        return System.Database.upsert(records);
+    public virtual Database.SaveResult insertRecords(SObject record, Database.DMLOptions dmlOptions) {
+        return System.Database.insert(record, dmlOptions);
     }
-
-    /** @description db.deleteRecords() implementation */
-    public virtual List<Database.DeleteResult> deleteRecords(
-        List<SObject> records
-    ) {
-        return System.Database.delete(records);
+    public virtual Database.SaveResult insertRecords(SObject record, Boolean allOrNone, System.AccessLevel accessLevel) {
+        return System.Database.insert(record, allOrNone, accessLevel);
     }
-
-    /** @description db.undeleteRecords() implementation */
-    public virtual List<Database.UndeleteResult> undeleteRecords(
-        List<SObject> records
-    ) {
-        return System.Database.undelete(records);
+    public virtual Database.SaveResult insertRecords(SObject record, Database.DMLOptions dmlOptions, System.AccessLevel accessLevel) {
+        return System.Database.insert(record, dmlOptions, accessLevel);
+    }
+    // insert - list
+    public virtual List<Database.SaveResult> insertRecords(List<SObject> records) {
+        return insertRecords(records, false);
+    }
+    public virtual List<Database.SaveResult> insertRecords(List<SObject> records, Boolean allOrNone) {
+        return System.Database.insert(records, allOrNone);
+    }
+    public virtual List<Database.SaveResult> insertRecords(List<SObject> records, Database.DMLOptions dmlOptions) {
+        return System.Database.insert(records, dmlOptions);
+    }
+    public virtual List<Database.SaveResult> insertRecords(List<SObject> records, Boolean allOrNone, System.AccessLevel accessLevel) {
+        return System.Database.insert(records, allOrNone, accessLevel);
+    }
+    public virtual List<Database.SaveResult> insertRecords(List<SObject> records, Database.DMLOptions dmlOptions, System.AccessLevel accessLevel) {
+        return System.Database.insert(records, dmlOptions, accessLevel);
+    }
+    // update - single record
+    public virtual Database.SaveResult updateRecords(SObject record) {
+        return updateRecords(record, false);
+    }
+    public virtual Database.SaveResult updateRecords(SObject record, Boolean allOrNone) {
+        return System.Database.update(record, allOrNone);
+    }
+    public virtual Database.SaveResult updateRecords(SObject record, Database.DMLOptions dmlOptions) {
+        return System.Database.update(record, dmlOptions);
+    }
+    public virtual Database.SaveResult updateRecords(SObject record, Boolean allOrNone, System.AccessLevel accessLevel) {
+        return System.Database.update(record, allOrNone, accessLevel);
+    }
+    public virtual Database.SaveResult updateRecords(SObject record, Database.DMLOptions dmlOptions, System.AccessLevel accessLevel) {
+        return System.Database.update(record, dmlOptions, accessLevel);
+    }
+    // update - list
+    public virtual List<Database.SaveResult> updateRecords(List<SObject> records) {
+        return updateRecords(records, false);
+    }
+    public virtual List<Database.SaveResult> updateRecords(List<SObject> records, Boolean allOrNone) {
+        return System.Database.update(records, allOrNone);
+    }
+    public virtual List<Database.SaveResult> updateRecords(List<SObject> records, Database.DMLOptions dmlOptions) {
+        return System.Database.update(records, dmlOptions);
+    }
+    public virtual List<Database.SaveResult> updateRecords(List<SObject> records, Boolean allOrNone, System.AccessLevel accessLevel) {
+        return System.Database.update(records, allOrNone, accessLevel);
+    }
+    public virtual List<Database.SaveResult> updateRecords(List<SObject> records, Database.DMLOptions dmlOptions, System.AccessLevel accessLevel) {
+        return System.Database.update(records, dmlOptions, accessLevel);
+    }
+    // upsert - single record
+    public virtual Database.UpsertResult upsertRecords(SObject record) {
+        return upsertRecords(record, null, false);
+    }
+    public virtual Database.UpsertResult upsertRecords(SObject record, Boolean allOrNone) {
+        return upsertRecords(record, null, allOrNone);
+    }
+    public virtual Database.UpsertResult upsertRecords(SObject record, Schema.SObjectField externalIdField) {
+        return upsertRecords(record, externalIdField, false);
+    }
+    public virtual Database.UpsertResult upsertRecords(SObject record, Schema.SObjectField externalIdField, Boolean allOrNone) {
+        return externalIdField != null
+            ? System.Database.upsert(record, externalIdField, allOrNone)
+            : System.Database.upsert(record, allOrNone);
+    }
+    public virtual Database.UpsertResult upsertRecords(SObject record, Boolean allOrNone, System.AccessLevel accessLevel) {
+        return upsertRecords(record, null, allOrNone, accessLevel);
+    }
+    public virtual Database.UpsertResult upsertRecords(SObject record, Schema.SObjectField externalIdField, Boolean allOrNone, System.AccessLevel accessLevel) {
+        return externalIdField != null
+            ? System.Database.upsert(record, externalIdField, allOrNone, accessLevel)
+            : System.Database.upsert(record, allOrNone, accessLevel);
+    }
+    // upsert - list
+    public virtual List<Database.UpsertResult> upsertRecords(List<SObject> records) {
+        return upsertRecords(records, null, false);
+    }
+    public virtual List<Database.UpsertResult> upsertRecords(List<SObject> records, Boolean allOrNone) {
+        return upsertRecords(records, null, allOrNone);
+    }
+    public virtual List<Database.UpsertResult> upsertRecords(List<SObject> records, Schema.SObjectField externalIdField) {
+        return upsertRecords(records, externalIdField, false);
+    }
+    public virtual List<Database.UpsertResult> upsertRecords(List<SObject> records, Schema.SObjectField externalIdField, Boolean allOrNone) {
+        return externalIdField != null
+            ? System.Database.upsert(records, externalIdField, allOrNone)
+            : System.Database.upsert(records, allOrNone);
+    }
+    public virtual List<Database.UpsertResult> upsertRecords(List<SObject> records, Boolean allOrNone, System.AccessLevel accessLevel) {
+        return upsertRecords(records, null, allOrNone, accessLevel);
+    }
+    public virtual List<Database.UpsertResult> upsertRecords(List<SObject> records, Schema.SObjectField externalIdField, Boolean allOrNone, System.AccessLevel accessLevel) {
+        return externalIdField != null
+            ? System.Database.upsert(records, externalIdField, allOrNone, accessLevel)
+            : System.Database.upsert(records, allOrNone, accessLevel);
+    }
+    // delete - single SObject
+    public virtual Database.DeleteResult deleteRecords(SObject record) {
+        return deleteRecords(record, false);
+    }
+    public virtual Database.DeleteResult deleteRecords(SObject record, Boolean allOrNone) {
+        return System.Database.delete(record, allOrNone);
+    }
+    public virtual Database.DeleteResult deleteRecords(SObject record, Boolean allOrNone, System.AccessLevel accessLevel) {
+        return System.Database.delete(record, allOrNone, accessLevel);
+    }
+    // delete - single Id
+    public virtual Database.DeleteResult deleteRecords(Id recordId) {
+        return deleteRecords(recordId, false);
+    }
+    public virtual Database.DeleteResult deleteRecords(Id recordId, Boolean allOrNone) {
+        return System.Database.delete(recordId, allOrNone);
+    }
+    public virtual Database.DeleteResult deleteRecords(Id recordId, Boolean allOrNone, System.AccessLevel accessLevel) {
+        return System.Database.delete(recordId, allOrNone, accessLevel);
+    }
+    // delete - list SObject
+    public virtual List<Database.DeleteResult> deleteRecords(List<SObject> records) {
+        return deleteRecords(records, false);
+    }
+    public virtual List<Database.DeleteResult> deleteRecords(List<SObject> records, Boolean allOrNone) {
+        return System.Database.delete(records, allOrNone);
+    }
+    public virtual List<Database.DeleteResult> deleteRecords(List<SObject> records, Boolean allOrNone, System.AccessLevel accessLevel) {
+        return System.Database.delete(records, allOrNone, accessLevel);
+    }
+    // delete - list Id
+    public virtual List<Database.DeleteResult> deleteRecords(List<Id> recordIds) {
+        return deleteRecords(recordIds, false);
+    }
+    public virtual List<Database.DeleteResult> deleteRecords(List<Id> recordIds, Boolean allOrNone) {
+        return System.Database.delete(recordIds, allOrNone);
+    }
+    public virtual List<Database.DeleteResult> deleteRecords(List<Id> recordIds, Boolean allOrNone, System.AccessLevel accessLevel) {
+        return System.Database.delete(recordIds, allOrNone, accessLevel);
+    }
+    // undelete - single SObject
+    public virtual Database.UndeleteResult undeleteRecords(SObject record) {
+        return undeleteRecords(record, false);
+    }
+    public virtual Database.UndeleteResult undeleteRecords(SObject record, Boolean allOrNone) {
+        return System.Database.undelete(record, allOrNone);
+    }
+    public virtual Database.UndeleteResult undeleteRecords(SObject record, Boolean allOrNone, System.AccessLevel accessLevel) {
+        return System.Database.undelete(record, allOrNone, accessLevel);
+    }
+    // undelete - single Id
+    public virtual Database.UndeleteResult undeleteRecords(Id recordId) {
+        return undeleteRecords(recordId, false);
+    }
+    public virtual Database.UndeleteResult undeleteRecords(Id recordId, Boolean allOrNone) {
+        return System.Database.undelete(recordId, allOrNone);
+    }
+    public virtual Database.UndeleteResult undeleteRecords(Id recordId, Boolean allOrNone, System.AccessLevel accessLevel) {
+        return System.Database.undelete(recordId, allOrNone, accessLevel);
+    }
+    // undelete - list SObject
+    public virtual List<Database.UndeleteResult> undeleteRecords(List<SObject> records) {
+        return undeleteRecords(records, false);
+    }
+    public virtual List<Database.UndeleteResult> undeleteRecords(List<SObject> records, Boolean allOrNone) {
+        return System.Database.undelete(records, allOrNone);
+    }
+    public virtual List<Database.UndeleteResult> undeleteRecords(List<SObject> records, Boolean allOrNone, System.AccessLevel accessLevel) {
+        return System.Database.undelete(records, allOrNone, accessLevel);
+    }
+    // undelete - list Id
+    public virtual List<Database.UndeleteResult> undeleteRecords(List<Id> recordIds) {
+        return undeleteRecords(recordIds, false);
+    }
+    public virtual List<Database.UndeleteResult> undeleteRecords(List<Id> recordIds, Boolean allOrNone) {
+        return System.Database.undelete(recordIds, allOrNone);
+    }
+    public virtual List<Database.UndeleteResult> undeleteRecords(List<Id> recordIds, Boolean allOrNone, System.AccessLevel accessLevel) {
+        return System.Database.undelete(recordIds, allOrNone, accessLevel);
     }
 
     /****************************************************************************************
@@ -442,39 +759,187 @@ public virtual inherited sharing class Proxy {
          * MOCK WRITE API: allows extending class to override
          ******************************************************************/
 
-        /** @description overridable; default implementation returns an empty list matching the size of records */
-        public virtual override List<Database.SaveResult> insertRecords(
-            List<SObject> records
-        ) {
+        // insert - single record; delegates to list master; override for custom result
+        public virtual override Database.SaveResult insertRecords(SObject record) {
+            return insertRecords(record, false);
+        }
+        public virtual override Database.SaveResult insertRecords(SObject record, Boolean allOrNone) {
+            return insertRecords(new List<SObject>{ record }, allOrNone)[0];
+        }
+        public virtual override Database.SaveResult insertRecords(SObject record, Database.DMLOptions dmlOptions) {
+            return insertRecords(new List<SObject>{ record }, dmlOptions)[0];
+        }
+        public virtual override Database.SaveResult insertRecords(SObject record, Boolean allOrNone, System.AccessLevel accessLevel) {
+            return insertRecords(new List<SObject>{ record }, allOrNone, accessLevel)[0];
+        }
+        public virtual override Database.SaveResult insertRecords(SObject record, Database.DMLOptions dmlOptions, System.AccessLevel accessLevel) {
+            return insertRecords(new List<SObject>{ record }, dmlOptions, accessLevel)[0];
+        }
+        // insert - list; master returns size-matched list of null results
+        public virtual override List<Database.SaveResult> insertRecords(List<SObject> records) {
+            return insertRecords(records, false);
+        }
+        public virtual override List<Database.SaveResult> insertRecords(List<SObject> records, Boolean allOrNone) {
             return new List<Database.SaveResult>(records.size());
         }
-
-        /** @description overridable; default implementation returns an empty list matching the size of records */
-        public virtual override List<Database.SaveResult> updateRecords(
-            List<SObject> records
-        ) {
+        public virtual override List<Database.SaveResult> insertRecords(List<SObject> records, Database.DMLOptions dmlOptions) {
             return new List<Database.SaveResult>(records.size());
         }
-
-        /** @description overridable; default implementation returns an empty list matching the size of records */
-        public virtual override List<Database.UpsertResult> upsertRecords(
-            List<SObject> records
-        ) {
+        public virtual override List<Database.SaveResult> insertRecords(List<SObject> records, Boolean allOrNone, System.AccessLevel accessLevel) {
+            return new List<Database.SaveResult>(records.size());
+        }
+        public virtual override List<Database.SaveResult> insertRecords(List<SObject> records, Database.DMLOptions dmlOptions, System.AccessLevel accessLevel) {
+            return new List<Database.SaveResult>(records.size());
+        }
+        // update - single record
+        public virtual override Database.SaveResult updateRecords(SObject record) {
+            return updateRecords(record, false);
+        }
+        public virtual override Database.SaveResult updateRecords(SObject record, Boolean allOrNone) {
+            return updateRecords(new List<SObject>{ record }, allOrNone)[0];
+        }
+        public virtual override Database.SaveResult updateRecords(SObject record, Database.DMLOptions dmlOptions) {
+            return updateRecords(new List<SObject>{ record }, dmlOptions)[0];
+        }
+        public virtual override Database.SaveResult updateRecords(SObject record, Boolean allOrNone, System.AccessLevel accessLevel) {
+            return updateRecords(new List<SObject>{ record }, allOrNone, accessLevel)[0];
+        }
+        public virtual override Database.SaveResult updateRecords(SObject record, Database.DMLOptions dmlOptions, System.AccessLevel accessLevel) {
+            return updateRecords(new List<SObject>{ record }, dmlOptions, accessLevel)[0];
+        }
+        // update - list
+        public virtual override List<Database.SaveResult> updateRecords(List<SObject> records) {
+            return updateRecords(records, false);
+        }
+        public virtual override List<Database.SaveResult> updateRecords(List<SObject> records, Boolean allOrNone) {
+            return new List<Database.SaveResult>(records.size());
+        }
+        public virtual override List<Database.SaveResult> updateRecords(List<SObject> records, Database.DMLOptions dmlOptions) {
+            return new List<Database.SaveResult>(records.size());
+        }
+        public virtual override List<Database.SaveResult> updateRecords(List<SObject> records, Boolean allOrNone, System.AccessLevel accessLevel) {
+            return new List<Database.SaveResult>(records.size());
+        }
+        public virtual override List<Database.SaveResult> updateRecords(List<SObject> records, Database.DMLOptions dmlOptions, System.AccessLevel accessLevel) {
+            return new List<Database.SaveResult>(records.size());
+        }
+        // upsert - single record
+        public virtual override Database.UpsertResult upsertRecords(SObject record) {
+            return upsertRecords(record, null, false);
+        }
+        public virtual override Database.UpsertResult upsertRecords(SObject record, Boolean allOrNone) {
+            return upsertRecords(record, null, allOrNone);
+        }
+        public virtual override Database.UpsertResult upsertRecords(SObject record, Schema.SObjectField externalIdField) {
+            return upsertRecords(record, externalIdField, false);
+        }
+        public virtual override Database.UpsertResult upsertRecords(SObject record, Schema.SObjectField externalIdField, Boolean allOrNone) {
+            return upsertRecords(new List<SObject>{ record }, externalIdField, allOrNone)[0];
+        }
+        public virtual override Database.UpsertResult upsertRecords(SObject record, Boolean allOrNone, System.AccessLevel accessLevel) {
+            return upsertRecords(record, null, allOrNone, accessLevel);
+        }
+        public virtual override Database.UpsertResult upsertRecords(SObject record, Schema.SObjectField externalIdField, Boolean allOrNone, System.AccessLevel accessLevel) {
+            return upsertRecords(new List<SObject>{ record }, externalIdField, allOrNone, accessLevel)[0];
+        }
+        // upsert - list
+        public virtual override List<Database.UpsertResult> upsertRecords(List<SObject> records) {
+            return upsertRecords(records, null, false);
+        }
+        public virtual override List<Database.UpsertResult> upsertRecords(List<SObject> records, Boolean allOrNone) {
+            return upsertRecords(records, null, allOrNone);
+        }
+        public virtual override List<Database.UpsertResult> upsertRecords(List<SObject> records, Schema.SObjectField externalIdField) {
+            return upsertRecords(records, externalIdField, false);
+        }
+        public virtual override List<Database.UpsertResult> upsertRecords(List<SObject> records, Schema.SObjectField externalIdField, Boolean allOrNone) {
             return new List<Database.UpsertResult>(records.size());
         }
-
-        /** @description overridable; default implementation returns an empty list matching the size of records */
-        public virtual override List<Database.DeleteResult> deleteRecords(
-            List<SObject> records
-        ) {
+        public virtual override List<Database.UpsertResult> upsertRecords(List<SObject> records, Boolean allOrNone, System.AccessLevel accessLevel) {
+            return upsertRecords(records, null, allOrNone, accessLevel);
+        }
+        public virtual override List<Database.UpsertResult> upsertRecords(List<SObject> records, Schema.SObjectField externalIdField, Boolean allOrNone, System.AccessLevel accessLevel) {
+            return new List<Database.UpsertResult>(records.size());
+        }
+        // delete - single SObject
+        public virtual override Database.DeleteResult deleteRecords(SObject record) {
+            return deleteRecords(record, false);
+        }
+        public virtual override Database.DeleteResult deleteRecords(SObject record, Boolean allOrNone) {
+            return deleteRecords(new List<SObject>{ record }, allOrNone)[0];
+        }
+        public virtual override Database.DeleteResult deleteRecords(SObject record, Boolean allOrNone, System.AccessLevel accessLevel) {
+            return deleteRecords(new List<SObject>{ record }, allOrNone, accessLevel)[0];
+        }
+        // delete - single Id
+        public virtual override Database.DeleteResult deleteRecords(Id recordId) {
+            return deleteRecords(recordId, false);
+        }
+        public virtual override Database.DeleteResult deleteRecords(Id recordId, Boolean allOrNone) {
+            return deleteRecords(new List<Id>{ recordId }, allOrNone)[0];
+        }
+        public virtual override Database.DeleteResult deleteRecords(Id recordId, Boolean allOrNone, System.AccessLevel accessLevel) {
+            return deleteRecords(new List<Id>{ recordId }, allOrNone, accessLevel)[0];
+        }
+        // delete - list SObject
+        public virtual override List<Database.DeleteResult> deleteRecords(List<SObject> records) {
+            return deleteRecords(records, false);
+        }
+        public virtual override List<Database.DeleteResult> deleteRecords(List<SObject> records, Boolean allOrNone) {
             return new List<Database.DeleteResult>(records.size());
         }
-
-        /** @description overridable; default implementation returns an empty list matching the size of records */
-        public virtual override List<Database.UndeleteResult> undeleteRecords(
-            List<SObject> records
-        ) {
+        public virtual override List<Database.DeleteResult> deleteRecords(List<SObject> records, Boolean allOrNone, System.AccessLevel accessLevel) {
+            return new List<Database.DeleteResult>(records.size());
+        }
+        // delete - list Id
+        public virtual override List<Database.DeleteResult> deleteRecords(List<Id> recordIds) {
+            return deleteRecords(recordIds, false);
+        }
+        public virtual override List<Database.DeleteResult> deleteRecords(List<Id> recordIds, Boolean allOrNone) {
+            return new List<Database.DeleteResult>(recordIds.size());
+        }
+        public virtual override List<Database.DeleteResult> deleteRecords(List<Id> recordIds, Boolean allOrNone, System.AccessLevel accessLevel) {
+            return new List<Database.DeleteResult>(recordIds.size());
+        }
+        // undelete - single SObject
+        public virtual override Database.UndeleteResult undeleteRecords(SObject record) {
+            return undeleteRecords(record, false);
+        }
+        public virtual override Database.UndeleteResult undeleteRecords(SObject record, Boolean allOrNone) {
+            return undeleteRecords(new List<SObject>{ record }, allOrNone)[0];
+        }
+        public virtual override Database.UndeleteResult undeleteRecords(SObject record, Boolean allOrNone, System.AccessLevel accessLevel) {
+            return undeleteRecords(new List<SObject>{ record }, allOrNone, accessLevel)[0];
+        }
+        // undelete - single Id
+        public virtual override Database.UndeleteResult undeleteRecords(Id recordId) {
+            return undeleteRecords(recordId, false);
+        }
+        public virtual override Database.UndeleteResult undeleteRecords(Id recordId, Boolean allOrNone) {
+            return undeleteRecords(new List<Id>{ recordId }, allOrNone)[0];
+        }
+        public virtual override Database.UndeleteResult undeleteRecords(Id recordId, Boolean allOrNone, System.AccessLevel accessLevel) {
+            return undeleteRecords(new List<Id>{ recordId }, allOrNone, accessLevel)[0];
+        }
+        // undelete - list SObject
+        public virtual override List<Database.UndeleteResult> undeleteRecords(List<SObject> records) {
+            return undeleteRecords(records, false);
+        }
+        public virtual override List<Database.UndeleteResult> undeleteRecords(List<SObject> records, Boolean allOrNone) {
             return new List<Database.UndeleteResult>(records.size());
+        }
+        public virtual override List<Database.UndeleteResult> undeleteRecords(List<SObject> records, Boolean allOrNone, System.AccessLevel accessLevel) {
+            return new List<Database.UndeleteResult>(records.size());
+        }
+        // undelete - list Id
+        public virtual override List<Database.UndeleteResult> undeleteRecords(List<Id> recordIds) {
+            return undeleteRecords(recordIds, false);
+        }
+        public virtual override List<Database.UndeleteResult> undeleteRecords(List<Id> recordIds, Boolean allOrNone) {
+            return new List<Database.UndeleteResult>(recordIds.size());
+        }
+        public virtual override List<Database.UndeleteResult> undeleteRecords(List<Id> recordIds, Boolean allOrNone, System.AccessLevel accessLevel) {
+            return new List<Database.UndeleteResult>(recordIds.size());
         }
     }
 

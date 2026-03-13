@@ -331,4 +331,151 @@ public inherited sharing class ProxyTest extends Proxy.MockReader {
         }
         Assert.areEqual(orgDefault, Proxy.DEF_PROXY);
     }
+
+    /********************************************
+     * VALIDATE DB WRITE OVERLOADS
+     *********************************************/
+
+    /** Covers allOrNone, DMLOptions, and AccessLevel list overloads without mock (empty lists = no-op DML) */
+    @isTest
+    private static void coverProxyDbOperations_listOverloads() {
+        List<Account> accts = new List<Account>();
+        Database.DMLOptions opts = new Database.DMLOptions();
+        // insert
+        Assert.areEqual(0, Proxy.db.insertRecords(accts, false).size());
+        Assert.areEqual(0, Proxy.db.insertRecords(accts, true).size());
+        Assert.areEqual(0, Proxy.db.insertRecords(accts, opts).size());
+        Assert.areEqual(0, Proxy.db.insertRecords(accts, false, System.AccessLevel.SYSTEM_MODE).size());
+        Assert.areEqual(0, Proxy.db.insertRecords(accts, opts, System.AccessLevel.SYSTEM_MODE).size());
+        // update
+        Assert.areEqual(0, Proxy.db.updateRecords(accts, false).size());
+        Assert.areEqual(0, Proxy.db.updateRecords(accts, true).size());
+        Assert.areEqual(0, Proxy.db.updateRecords(accts, opts).size());
+        Assert.areEqual(0, Proxy.db.updateRecords(accts, false, System.AccessLevel.SYSTEM_MODE).size());
+        Assert.areEqual(0, Proxy.db.updateRecords(accts, opts, System.AccessLevel.SYSTEM_MODE).size());
+        // upsert
+        Assert.areEqual(0, Proxy.db.upsertRecords(accts, false).size());
+        Assert.areEqual(0, Proxy.db.upsertRecords(accts, true).size());
+        Assert.areEqual(0, Proxy.db.upsertRecords(accts, Schema.Account.Id).size());
+        Assert.areEqual(0, Proxy.db.upsertRecords(accts, Schema.Account.Id, false).size());
+        Assert.areEqual(0, Proxy.db.upsertRecords(accts, false, System.AccessLevel.SYSTEM_MODE).size());
+        Assert.areEqual(0, Proxy.db.upsertRecords(accts, Schema.Account.Id, false, System.AccessLevel.SYSTEM_MODE).size());
+        // delete
+        Assert.areEqual(0, Proxy.db.deleteRecords(accts, false).size());
+        Assert.areEqual(0, Proxy.db.deleteRecords(accts, true).size());
+        Assert.areEqual(0, Proxy.db.deleteRecords(accts, false, System.AccessLevel.SYSTEM_MODE).size());
+        Assert.areEqual(0, Proxy.db.deleteRecords(new List<Id>(), false).size());
+        Assert.areEqual(0, Proxy.db.deleteRecords(new List<Id>(), false, System.AccessLevel.SYSTEM_MODE).size());
+        // undelete
+        Assert.areEqual(0, Proxy.db.undeleteRecords(accts, false).size());
+        Assert.areEqual(0, Proxy.db.undeleteRecords(accts, true).size());
+        Assert.areEqual(0, Proxy.db.undeleteRecords(accts, false, System.AccessLevel.SYSTEM_MODE).size());
+        Assert.areEqual(0, Proxy.db.undeleteRecords(new List<Id>(), false).size());
+        Assert.areEqual(0, Proxy.db.undeleteRecords(new List<Id>(), false, System.AccessLevel.SYSTEM_MODE).size());
+    }
+
+    @isTest
+    private static void db_coverWrite_listOverloads_mocked() {
+        Proxy.mock();
+        coverProxyDbOperations_listOverloads();
+    }
+
+    /** Verifies mocked list overloads return a result per record */
+    @isTest
+    private static void db_coverWrite_listOverloads_sizeMatchesRecords() {
+        Proxy.mock();
+        List<Account> accts = new List<Account>{ new Account(), new Account() };
+        Database.DMLOptions opts = new Database.DMLOptions();
+        List<Id> ids = new List<Id>{ Proxy.mock.getFauxId(Account.SObjectType), Proxy.mock.getFauxId(Account.SObjectType) };
+        // insert
+        Assert.areEqual(2, Proxy.db.insertRecords(accts, false).size());
+        Assert.areEqual(2, Proxy.db.insertRecords(accts, true).size());
+        Assert.areEqual(2, Proxy.db.insertRecords(accts, opts).size());
+        Assert.areEqual(2, Proxy.db.insertRecords(accts, false, System.AccessLevel.SYSTEM_MODE).size());
+        Assert.areEqual(2, Proxy.db.insertRecords(accts, opts, System.AccessLevel.SYSTEM_MODE).size());
+        // update
+        Assert.areEqual(2, Proxy.db.updateRecords(accts, false).size());
+        Assert.areEqual(2, Proxy.db.updateRecords(accts, true).size());
+        Assert.areEqual(2, Proxy.db.updateRecords(accts, opts).size());
+        Assert.areEqual(2, Proxy.db.updateRecords(accts, false, System.AccessLevel.SYSTEM_MODE).size());
+        Assert.areEqual(2, Proxy.db.updateRecords(accts, opts, System.AccessLevel.SYSTEM_MODE).size());
+        // upsert
+        Assert.areEqual(2, Proxy.db.upsertRecords(accts, false).size());
+        Assert.areEqual(2, Proxy.db.upsertRecords(accts, true).size());
+        Assert.areEqual(2, Proxy.db.upsertRecords(accts, Schema.Account.Id).size());
+        Assert.areEqual(2, Proxy.db.upsertRecords(accts, Schema.Account.Id, false).size());
+        Assert.areEqual(2, Proxy.db.upsertRecords(accts, false, System.AccessLevel.SYSTEM_MODE).size());
+        Assert.areEqual(2, Proxy.db.upsertRecords(accts, Schema.Account.Id, false, System.AccessLevel.SYSTEM_MODE).size());
+        // delete (list SObject + list Id)
+        Assert.areEqual(2, Proxy.db.deleteRecords(accts, false).size());
+        Assert.areEqual(2, Proxy.db.deleteRecords(accts, true).size());
+        Assert.areEqual(2, Proxy.db.deleteRecords(accts, false, System.AccessLevel.SYSTEM_MODE).size());
+        Assert.areEqual(2, Proxy.db.deleteRecords(ids, false).size());
+        Assert.areEqual(2, Proxy.db.deleteRecords(ids, true).size());
+        Assert.areEqual(2, Proxy.db.deleteRecords(ids, false, System.AccessLevel.SYSTEM_MODE).size());
+        // undelete (list SObject + list Id)
+        Assert.areEqual(2, Proxy.db.undeleteRecords(accts, false).size());
+        Assert.areEqual(2, Proxy.db.undeleteRecords(accts, true).size());
+        Assert.areEqual(2, Proxy.db.undeleteRecords(accts, false, System.AccessLevel.SYSTEM_MODE).size());
+        Assert.areEqual(2, Proxy.db.undeleteRecords(ids, false).size());
+        Assert.areEqual(2, Proxy.db.undeleteRecords(ids, true).size());
+        Assert.areEqual(2, Proxy.db.undeleteRecords(ids, false, System.AccessLevel.SYSTEM_MODE).size());
+    }
+
+    /** Covers single-record and single-Id overloads using mock (avoids actual DML) */
+    @isTest
+    private static void db_coverWrite_singleRecordOverloads() {
+        Proxy.mock();
+        Account acct = new Account();
+        Database.DMLOptions opts = new Database.DMLOptions();
+        Id fakeId = Proxy.mock.getFauxId(Account.SObjectType);
+        // insert single
+        Proxy.db.insertRecords(acct);
+        Proxy.db.insertRecords(acct, false);
+        Proxy.db.insertRecords(acct, opts);
+        Proxy.db.insertRecords(acct, false, System.AccessLevel.SYSTEM_MODE);
+        Proxy.db.insertRecords(acct, opts, System.AccessLevel.SYSTEM_MODE);
+        // update single
+        Proxy.db.updateRecords(acct);
+        Proxy.db.updateRecords(acct, false);
+        Proxy.db.updateRecords(acct, opts);
+        Proxy.db.updateRecords(acct, false, System.AccessLevel.SYSTEM_MODE);
+        Proxy.db.updateRecords(acct, opts, System.AccessLevel.SYSTEM_MODE);
+        // upsert single
+        Proxy.db.upsertRecords(acct);
+        Proxy.db.upsertRecords(acct, false);
+        Proxy.db.upsertRecords(acct, Schema.Account.Id);
+        Proxy.db.upsertRecords(acct, Schema.Account.Id, false);
+        Proxy.db.upsertRecords(acct, false, System.AccessLevel.SYSTEM_MODE);
+        Proxy.db.upsertRecords(acct, Schema.Account.Id, false, System.AccessLevel.SYSTEM_MODE);
+        // delete single SObject + single Id
+        Proxy.db.deleteRecords(acct);
+        Proxy.db.deleteRecords(acct, false);
+        Proxy.db.deleteRecords(acct, false, System.AccessLevel.SYSTEM_MODE);
+        Proxy.db.deleteRecords(fakeId);
+        Proxy.db.deleteRecords(fakeId, false);
+        Proxy.db.deleteRecords(fakeId, false, System.AccessLevel.SYSTEM_MODE);
+        // undelete single SObject + single Id
+        Proxy.db.undeleteRecords(acct);
+        Proxy.db.undeleteRecords(acct, false);
+        Proxy.db.undeleteRecords(acct, false, System.AccessLevel.SYSTEM_MODE);
+        Proxy.db.undeleteRecords(fakeId);
+        Proxy.db.undeleteRecords(fakeId, false);
+        Proxy.db.undeleteRecords(fakeId, false, System.AccessLevel.SYSTEM_MODE);
+    }
+
+    /** Covers no-arg single-record and no-arg list-Id delegating overloads with mock */
+    @isTest
+    private static void db_coverWrite_noArgDelegates_mocked() {
+        Proxy.mock();
+        Account acct = new Account();
+        Id fakeId = Proxy.mock.getFauxId(Account.SObjectType);
+        Assert.areEqual(0, Proxy.db.insertRecords(new List<Account>()).size());
+        Assert.areEqual(0, Proxy.db.updateRecords(new List<Account>()).size());
+        Assert.areEqual(0, Proxy.db.upsertRecords(new List<Account>()).size());
+        Assert.areEqual(0, Proxy.db.deleteRecords(new List<Account>()).size());
+        Assert.areEqual(0, Proxy.db.deleteRecords(new List<Id>()).size());
+        Assert.areEqual(0, Proxy.db.undeleteRecords(new List<Account>()).size());
+        Assert.areEqual(0, Proxy.db.undeleteRecords(new List<Id>()).size());
+    }
 }
