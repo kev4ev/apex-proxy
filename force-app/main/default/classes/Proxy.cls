@@ -77,7 +77,7 @@ public virtual inherited sharing class Proxy {
 
     /****************************************************************************************
      * db "Namespace"
-     * Database read and write APIs.
+     * Database read and mutation APIs.
      ****************************************************************************************/
 
     public static Db db {
@@ -304,6 +304,8 @@ public virtual inherited sharing class Proxy {
             String callerName = normalizeClassName(caller);
             // return either the previously-suplied mock reader or the passed one
             MockReader mocker = readMocks.get(callerName);
+            // do not perform dummy query as db hit has already occurred
+            mocker?.disableLimitsOnce();
             List<SObject> readRecords = mocker?.read(readContext) ?? records;
             readAudit(callerName, readRecords);
 
@@ -343,7 +345,7 @@ public virtual inherited sharing class Proxy {
         }
 
         /******************************************************************
-         * MOCK WRITE API: fully implemented by DbApiStub
+         * MOCK WRITE API: mocking handled OOB by DbWrite class
          ******************************************************************/
     }
 
@@ -390,6 +392,7 @@ public virtual inherited sharing class Proxy {
             }
             set;
         }
+        private Boolean disableLimitsOnce = false;
 
         /**************************************************
          * INTERNAL STATE FROM RESULT-BUILDER API
@@ -407,6 +410,12 @@ public virtual inherited sharing class Proxy {
          **************************************************/
         public MockReadOptions setOptions() {
             return this.readOptions;
+        }
+
+        public MockReader disableLimitsOnce() {
+            this.disableLimitsOnce = true;
+
+            return this;
         }
 
         /**************************************************
@@ -433,8 +442,12 @@ public virtual inherited sharing class Proxy {
                 return this.linked.read(this.readContext);
             }
             // conditionally mock limits
-            if (this.readOptions.testLimits == true) {
-                Integer cnt = [SELECT COUNT() FROM Account LIMIT 1];
+            if (!this.disableLimitsOnce) {
+                if (this.readOptions.testLimits == true) {
+                    Integer cnt = [SELECT COUNT() FROM Account LIMIT 1];
+                }
+            } else {
+                this.disableLimitsOnce = false;
             }
 
             // create the list for return and persist to readAudit
@@ -692,7 +705,7 @@ public virtual inherited sharing class Proxy {
         public Boolean recaclFormulas = false;
         /**
          * @description when true, a minimal overhead query will be executed for each call to read() such
-         * that limits testing can be simulated. Note that otal queries can be simulated but rows
+         * that limits testing can be simulated. Note that total queries can be simulated but rows
          * retrieved cannot.
          */
         public Boolean testLimits = false;

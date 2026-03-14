@@ -1,8 +1,20 @@
 # Apex Proxy
 
+<!-- TODO note on AI - wait, but why do I need a testing framework with AI? Brownfield, agents aren't
+aware of existing context, need to avoid DB **even more** -->
+
 Apex unit tests - they're a fact of life for Salesforce developers. But have you been writing them wrong all this time?
 
 If your unit tests are writing and reading from the database, chances are what you're really writing are _integration tests_. The proxy pattern allows you to optimize your unit tests for performance, stability, and isolation.
+
+Goals:
+
+<!-- TODO finish -->
+
+1. solve 95% of state-related unit test challenges with a declarative, functional API; no stub api required
+2. built for progressive adoption; no massive rewrites or framework lock-in. Use when and where you need it and adopt over time.
+3. Everything is replaceable. Support complex use cases with virtual classes and methods.
+4. AI ready. Highly documented and functional API that makes it easier for LLMs to understand.
 
 ## Progressive Adoption
 
