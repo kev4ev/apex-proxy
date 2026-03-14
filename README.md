@@ -94,15 +94,9 @@ public class MyClass {
 
 During normal runtime `Proxy.reflect()` is a pass-through — it returns the value unchanged. In tests you can intercept and replace the value (see below).
 
-**Available DB write methods** (all route through the singleton proxy):
+#### Write Methods
 
-```java
-Proxy.db.insertRecords(records);
-Proxy.db.updateRecords(records);
-Proxy.db.upsertRecords(records);
-Proxy.db.deleteRecords(records);
-Proxy.db.undeleteRecords(records);
-```
+Proxy mirrors all Apex `Database` class methods for **insert, update, upsert, delete and undelete**.
 
 ### Unit Tests
 
@@ -121,9 +115,55 @@ Call `Proxy.mock()` at the start of each test to activate mock mode. In mock mod
 >
 > The best way to avoid this conflict by splitting your unit test logic into multiple tests but, where not feasible, there are other approaches such as utilizing a single MockReader for overlapping mocks and returning results based on the readContext (assuming it is passed).
 
-**Stubbing a SOQL read:**
+**Stubbing a SOQL read (inline style):**
+
+When using the inline read style, register the mock under the **calling class** (the type passed as the second argument to `Proxy.db.read()`) rather than a dedicated reader class.
 
 ```java
+// Production code
+public class AccountService {
+    public List<Account> getAccounts(String filter) {
+        return Proxy.db.read(
+            [SELECT Id, Name FROM Account WHERE Name LIKE :filter],
+            AccountService.class,
+            filter /** optional arg */
+        );
+    }
+}
+
+// Test code
+@isTest
+private static void testGetAccountsInline() {
+    // Register mock under AccountService.class — the caller passed to Proxy.db.read()
+    Proxy.MockReader mocker = Proxy.mock().mockReader(AccountService.class);
+    mocker.addReadRecord(new Account(Name = 'Acme'))
+          .addReadRecord(new Account(Name = 'Globex'));
+
+    // Exercise production code — no DB queries execute
+    List<Account> results = new AccountService().getAccounts('A%');
+    Assert.areEqual(2, results.size());
+    Assert.areEqual('Acme', results[0].Name);
+}
+```
+
+**Stubbing a SOQL read (implementation style):**
+
+```java
+// Production code
+public class AccountReader implements Proxy.DbReader {
+    public List<SObject> read(Object ctx) {
+        String filter = (String) ctx;
+        return [SELECT Id, Name FROM Account WHERE Name LIKE :filter];
+    }
+}
+
+public class AccountService {
+    public List<Account> getAccounts(String filter) {
+        return (List<Account>) Proxy.db.read(new AccountReader(), filter);
+    }
+}
+
+// Test code
 @isTest
 private static void testGetAccounts() {
     // Activate mock mode and configure a mock reader for AccountReader
@@ -155,6 +195,31 @@ private static void testGetAccountsWithRelations() {
     Account a = results[0];
     Assert.areEqual('Parent Corp', a.Parent.Name);
     Assert.areEqual(2, a.Contacts.size());
+}
+```
+
+**Stubbing reads with a multi-level parent hierarchy:**
+
+When the parent chain is more than one level deep, build the hierarchy top-down: create the highest ancestor first, then wire each record to its child during instantiation. Only the **direct parent** of the root SObject is passed to `relateParent()` — the deeper ancestors are already embedded in that record's fields.
+
+```java
+@isTest
+private static void testGetAccountsWithDeepHierarchy() {
+    Proxy.MockReader mocker = Proxy.mock().mockReader(AccountReader.class);
+
+    // Create the highest ancestor first
+    Account grandParent = new Account(Name = 'Global Holdings');
+    // Relate grandParent to its child in the child's instantiation
+    Account parent = new Account(Name = 'Parent Corp', Parent = grandParent);
+
+    // Only the direct parent is related to the root record via relateParent()
+    mocker.addReadRecord(new Account(Name = 'Acme'))
+          .relateParent(parent, Schema.Account.ParentId);
+
+    List<Account> results = new AccountService().getAccounts('%');
+    Account a = results[0];
+    Assert.areEqual('Parent Corp', a.Parent.Name);
+    Assert.areEqual('Global Holdings', a.Parent.Parent.Name);
 }
 ```
 

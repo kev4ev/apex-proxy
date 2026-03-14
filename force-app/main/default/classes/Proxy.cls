@@ -1,6 +1,10 @@
 /**
  * @version 2.0.0
- * @description Provides APIs for trapping database reads and writes and assignment operands.
+ * @description Provides APIs for trapping database reads and writes and variable assignments.
+ * TOP-LEVEL APIs:
+ *  1. reflect
+ *  2. db (pseudo namespace for db read/write operations)
+ *  3. mock (only available during unit test execution)
  * Provided under the MIT License github.com/kev4ev/apex-proxy
  */
 
@@ -51,13 +55,6 @@ public virtual inherited sharing class Proxy {
     }
 
     /****************************************************************************************
-     * TOP-LEVEL APIs:
-     *   1. reflect
-     *   2. db (pseudo namespace for db read/write operations)
-     *   3. mock (only available during unit test execution)
-     ****************************************************************************************/
-
-    /****************************************************************************************
      * REFLECT API
      * A simple API for trapping and reflecting values in setters and expressions.
      ****************************************************************************************/
@@ -81,13 +78,13 @@ public virtual inherited sharing class Proxy {
      * All methods delegate to the singleton instance
      ****************************************************************************************/
 
-    public static final Db db = new Db();
-
-    public interface DbReader {
-        List<SObject> read(Object readContext);
+    public static Db db {
+        get {
+            return singleton.dbApi;
+        }
     }
-
-    public class Db extends DbWrite {
+    protected Db dbApi = new Db();
+    public virtual class Db extends DbWrite {
         private Db() {
         }
 
@@ -97,11 +94,14 @@ public virtual inherited sharing class Proxy {
 
         /** INLINE STYLE: best for greenfield and/or quick implementations */
 
-        public List<SObject> read(List<SObject> records, System.Type caller) {
+        public virtual List<SObject> read(
+            List<SObject> records,
+            System.Type caller
+        ) {
             return this.read(records, caller, null);
         }
 
-        public List<SObject> read(
+        public virtual List<SObject> read(
             List<SObject> records,
             System.Type caller,
             Object readContext
@@ -111,18 +111,22 @@ public virtual inherited sharing class Proxy {
 
         /** IMPLEMENTATION STYLE: best for use with existing frameworks or patterns like FFLIB / Selector pattern */
 
-        public List<SObject> read(DbReader reader) {
+        public virtual List<SObject> read(DbReader reader) {
             return this.read(reader, null);
         }
 
-        public List<SObject> read(DbReader reader, Object readContext) {
+        public virtual List<SObject> read(DbReader reader, Object readContext) {
             return singleton.read(reader, readContext);
         }
 
         /***************
          * DB WRITE API
          ***************/
-        // all dml methods implemented in DbWrite class at far bottom for conciseness
+        // DbWrite class included at far bottom for concise reading
+    }
+
+    public interface DbReader {
+        List<SObject> read(Object readContext);
     }
 
     /****************************************************************************************
@@ -741,6 +745,10 @@ public virtual inherited sharing class Proxy {
         }
     }
 
+    public abstract class MockReaderContextHandler {
+        public abstract MockReader getContextDependentReader(Object context);
+    }
+
     /**
      * @description Provides powerful API for constructing mock SOQL responses
      * including child and parent records.
@@ -749,6 +757,7 @@ public virtual inherited sharing class Proxy {
         /**************************************************
          * INITIAL STATE
          **************************************************/
+        private MockReaderContextHandler contextHandler;
         public List<List<SObject>> readAudit { get; private set; }
         private Object readContext;
         private MockReadOptions readOptions {
@@ -1115,7 +1124,7 @@ public virtual inherited sharing class Proxy {
         }
     }
 
-    private virtual class DbWrite {
+    public virtual class DbWrite {
         /****************************************************************************************
          * WRITE API
          ****************************************************************************************/
