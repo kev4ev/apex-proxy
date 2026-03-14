@@ -169,6 +169,10 @@ public virtual inherited sharing class Proxy {
         return customMock;
     }
 
+    // for some reason Apex requires Test.createStub to be called in outer context
+    private static Db createStub(System.StubProvider dbApiStub) {
+        return (Proxy.Db) Test.createStub(Proxy.Db.class, dbApiStub);
+    }
     public virtual class Mock extends Proxy {
         private Map<Schema.SObjectType, Integer> recordIdCounter = new Map<Schema.SObjectType, Integer>();
         private Map<String, MockReader> readMocks = new Map<String, MockReader>();
@@ -185,10 +189,7 @@ public virtual inherited sharing class Proxy {
                     'Mock api is only available during Apex test execution.'
                 );
             }
-            this.dbApi = (Proxy.Db) Test.createStub(
-                Proxy.Db.class,
-                new DbApiStub(this)
-            );
+            this.dbApi = createStub(new DbApiStub(this));
         }
 
         /************************************************************
