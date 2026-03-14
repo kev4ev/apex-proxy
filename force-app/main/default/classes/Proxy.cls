@@ -138,6 +138,7 @@ public virtual inherited sharing class Proxy {
      * Allows for powerful mocking of db reads and writes as well as the reflect api
      * Invoke in a unit test via: Proxy.mock() or Proxy.mock(customMockInstance)
      ****************************************************************************************/
+    private static Boolean isMocking = false;
 
     /** @description Acts as a pseudo-ns */
     public static Mock mock {
@@ -163,16 +164,13 @@ public virtual inherited sharing class Proxy {
     }
 
     public static Mock mock(Mock customMock) {
+        isMocking = true;
         mockSingleton = customMock;
         singleton = customMock;
 
         return customMock;
     }
 
-    // for some reason Apex requires Test.createStub to be called in outer context
-    private static Db createStub(System.StubProvider dbApiStub) {
-        return (Proxy.Db) Test.createStub(Proxy.Db.class, dbApiStub);
-    }
     public virtual class Mock extends Proxy {
         private Map<Schema.SObjectType, Integer> recordIdCounter = new Map<Schema.SObjectType, Integer>();
         private Map<String, MockReader> readMocks = new Map<String, MockReader>();
@@ -189,7 +187,7 @@ public virtual inherited sharing class Proxy {
                     'Mock api is only available during Apex test execution.'
                 );
             }
-            this.dbApi = createStub(new DbApiStub(this));
+            this.dbApi = new DbApiStub(this);
         }
 
         /************************************************************
@@ -350,99 +348,25 @@ public virtual inherited sharing class Proxy {
     }
 
     /** @description A stubbed Db class that merely delegates back to the appropriate Mock method */
-    private class DbApiStub implements System.StubProvider {
+    private class DbApiStub extends Db {
         private Mock mock;
         private DbApiStub(Mock mock) {
             this.mock = mock;
         }
 
-        public Object handleMethodCall(
-            Object stubbedObject,
-            String stubbedMethodName,
-            System.Type returnType,
-            List<System.Type> paramTypes,
-            List<String> paramNames,
-            List<Object> args
+        public override List<SObject> query(
+            List<SObject> records,
+            System.Type caller,
+            Object readContext
         ) {
-            String method = stubbedMethodName.toLowerCase();
-            switch on method {
-                when 'query' {
-                    return this.mock.query(
-                        (List<SObject>) args[0],
-                        (System.Type) args[1],
-                        (Object) args[2]
-                    );
-                }
-                when 'read' {
-                    return this.mock.read(
-                        (Proxy.DbReader) args[0],
-                        (Object) args[1]
-                    );
-                }
-                when else {
-                    /** handle below */
-                }
-            }
-
-            // create fake Database result type and return based on method called
-            Boolean listType = paramTypes[0] == List<SObject>.class;
-            String result = listType
-                ? getResultJson((List<SObject>) args[0])
-                : getResultJson((SObject) args[0]);
-
-            switch on method {
-                when 'insert', 'update' {
-                    return listType
-                        ? JSON.deserialize(
-                              result,
-                              List<Database.SaveResult>.class
-                          )
-                        : JSON.deserialize(result, Database.SaveResult.class);
-                }
-                when 'upsert' {
-                    return listType
-                        ? JSON.deserialize(
-                              result,
-                              List<Database.UpsertResult>.class
-                          )
-                        : JSON.deserialize(result, Database.UpsertResult.class);
-                }
-                when 'delete' {
-                    return listType
-                        ? JSON.deserialize(
-                              result,
-                              List<Database.DeleteResult>.class
-                          )
-                        : JSON.deserialize(result, Database.DeleteResult.class);
-                }
-                when 'undelete' {
-                    return listType
-                        ? JSON.deserialize(
-                              result,
-                              List<Database.UndeleteResult>.class
-                          )
-                        : JSON.deserialize(
-                              result,
-                              Database.UndeleteResult.class
-                          );
-                }
-                when else {
-                    // should never land here
-                    return null;
-                }
-            }
+            return this.mock.query(records, caller, readContext);
         }
 
-        private String getResultJson(List<SObject> sobjects) {
-            List<String> recordJsons = new List<String>();
-            for (SObject sobj : sobjects) {
-                recordJsons.add(getResultJson(sobj));
-            }
-            return '[' + String.join(recordJsons, ',') + ']';
-        }
-
-        private String getResultJson(SObject sobj) {
-            return '{"id":"' + sobj.Id + '", "success": true}';
+        public override List<SObject> read(
+            DbReader reader,
+            Object readContext
+        ) {
+            return this.mock.read(reader, readContext);
         }
     }
 
@@ -856,27 +780,47 @@ public virtual inherited sharing class Proxy {
             SObject record,
             Boolean allOrNone
         ) {
-            return System.Database.insert(record, allOrNone);
+            return isMocking
+                ? (Database.SaveResult) JSON.deserialize(
+                      getResultJson(record),
+                      Database.SaveResult.class
+                  )
+                : System.Database.insert(record, allOrNone);
         }
         public virtual Database.SaveResult insertRecords(
             SObject record,
             Database.DMLOptions dmlOptions
         ) {
-            return System.Database.insert(record, dmlOptions);
+            return isMocking
+                ? (Database.SaveResult) JSON.deserialize(
+                      getResultJson(record),
+                      Database.SaveResult.class
+                  )
+                : System.Database.insert(record, dmlOptions);
         }
         public virtual Database.SaveResult insertRecords(
             SObject record,
             Boolean allOrNone,
             System.AccessLevel accessLevel
         ) {
-            return System.Database.insert(record, allOrNone, accessLevel);
+            return isMocking
+                ? (Database.SaveResult) JSON.deserialize(
+                      getResultJson(record),
+                      Database.SaveResult.class
+                  )
+                : System.Database.insert(record, allOrNone, accessLevel);
         }
         public virtual Database.SaveResult insertRecords(
             SObject record,
             Database.DMLOptions dmlOptions,
             System.AccessLevel accessLevel
         ) {
-            return System.Database.insert(record, dmlOptions, accessLevel);
+            return isMocking
+                ? (Database.SaveResult) JSON.deserialize(
+                      getResultJson(record),
+                      Database.SaveResult.class
+                  )
+                : System.Database.insert(record, dmlOptions, accessLevel);
         }
         // insert - list
         public virtual List<Database.SaveResult> insertRecords(
@@ -888,27 +832,47 @@ public virtual inherited sharing class Proxy {
             List<SObject> records,
             Boolean allOrNone
         ) {
-            return System.Database.insert(records, allOrNone);
+            return isMocking
+                ? (List<Database.SaveResult>) JSON.deserialize(
+                      getResultJson(records),
+                      List<Database.SaveResult>.class
+                  )
+                : System.Database.insert(records, allOrNone);
         }
         public virtual List<Database.SaveResult> insertRecords(
             List<SObject> records,
             Database.DMLOptions dmlOptions
         ) {
-            return System.Database.insert(records, dmlOptions);
+            return isMocking
+                ? (List<Database.SaveResult>) JSON.deserialize(
+                      getResultJson(records),
+                      List<Database.SaveResult>.class
+                  )
+                : System.Database.insert(records, dmlOptions);
         }
         public virtual List<Database.SaveResult> insertRecords(
             List<SObject> records,
             Boolean allOrNone,
             System.AccessLevel accessLevel
         ) {
-            return System.Database.insert(records, allOrNone, accessLevel);
+            return isMocking
+                ? (List<Database.SaveResult>) JSON.deserialize(
+                      getResultJson(records),
+                      List<Database.SaveResult>.class
+                  )
+                : System.Database.insert(records, allOrNone, accessLevel);
         }
         public virtual List<Database.SaveResult> insertRecords(
             List<SObject> records,
             Database.DMLOptions dmlOptions,
             System.AccessLevel accessLevel
         ) {
-            return System.Database.insert(records, dmlOptions, accessLevel);
+            return isMocking
+                ? (List<Database.SaveResult>) JSON.deserialize(
+                      getResultJson(records),
+                      List<Database.SaveResult>.class
+                  )
+                : System.Database.insert(records, dmlOptions, accessLevel);
         }
         // update - single record
         public virtual Database.SaveResult updateRecords(SObject record) {
@@ -918,27 +882,47 @@ public virtual inherited sharing class Proxy {
             SObject record,
             Boolean allOrNone
         ) {
-            return System.Database.update(record, allOrNone);
+            return isMocking
+                ? (Database.SaveResult) JSON.deserialize(
+                      getResultJson(record),
+                      Database.SaveResult.class
+                  )
+                : System.Database.update(record, allOrNone);
         }
         public virtual Database.SaveResult updateRecords(
             SObject record,
             Database.DMLOptions dmlOptions
         ) {
-            return System.Database.update(record, dmlOptions);
+            return isMocking
+                ? (Database.SaveResult) JSON.deserialize(
+                      getResultJson(record),
+                      Database.SaveResult.class
+                  )
+                : System.Database.update(record, dmlOptions);
         }
         public virtual Database.SaveResult updateRecords(
             SObject record,
             Boolean allOrNone,
             System.AccessLevel accessLevel
         ) {
-            return System.Database.update(record, allOrNone, accessLevel);
+            return isMocking
+                ? (Database.SaveResult) JSON.deserialize(
+                      getResultJson(record),
+                      Database.SaveResult.class
+                  )
+                : System.Database.update(record, allOrNone, accessLevel);
         }
         public virtual Database.SaveResult updateRecords(
             SObject record,
             Database.DMLOptions dmlOptions,
             System.AccessLevel accessLevel
         ) {
-            return System.Database.update(record, dmlOptions, accessLevel);
+            return isMocking
+                ? (Database.SaveResult) JSON.deserialize(
+                      getResultJson(record),
+                      Database.SaveResult.class
+                  )
+                : System.Database.update(record, dmlOptions, accessLevel);
         }
         // update - list
         public virtual List<Database.SaveResult> updateRecords(
@@ -950,27 +934,47 @@ public virtual inherited sharing class Proxy {
             List<SObject> records,
             Boolean allOrNone
         ) {
-            return System.Database.update(records, allOrNone);
+            return isMocking
+                ? (List<Database.SaveResult>) JSON.deserialize(
+                      getResultJson(records),
+                      List<Database.SaveResult>.class
+                  )
+                : System.Database.update(records, allOrNone);
         }
         public virtual List<Database.SaveResult> updateRecords(
             List<SObject> records,
             Database.DMLOptions dmlOptions
         ) {
-            return System.Database.update(records, dmlOptions);
+            return isMocking
+                ? (List<Database.SaveResult>) JSON.deserialize(
+                      getResultJson(records),
+                      List<Database.SaveResult>.class
+                  )
+                : System.Database.update(records, dmlOptions);
         }
         public virtual List<Database.SaveResult> updateRecords(
             List<SObject> records,
             Boolean allOrNone,
             System.AccessLevel accessLevel
         ) {
-            return System.Database.update(records, allOrNone, accessLevel);
+            return isMocking
+                ? (List<Database.SaveResult>) JSON.deserialize(
+                      getResultJson(records),
+                      List<Database.SaveResult>.class
+                  )
+                : System.Database.update(records, allOrNone, accessLevel);
         }
         public virtual List<Database.SaveResult> updateRecords(
             List<SObject> records,
             Database.DMLOptions dmlOptions,
             System.AccessLevel accessLevel
         ) {
-            return System.Database.update(records, dmlOptions, accessLevel);
+            return isMocking
+                ? (List<Database.SaveResult>) JSON.deserialize(
+                      getResultJson(records),
+                      List<Database.SaveResult>.class
+                  )
+                : System.Database.update(records, dmlOptions, accessLevel);
         }
         // upsert - single record
         public virtual Database.UpsertResult upsertRecords(SObject record) {
@@ -993,9 +997,18 @@ public virtual inherited sharing class Proxy {
             Schema.SObjectField externalIdField,
             Boolean allOrNone
         ) {
-            return externalIdField != null
-                ? System.Database.upsert(record, externalIdField, allOrNone)
-                : System.Database.upsert(record, allOrNone);
+            return isMocking
+                ? (Database.UpsertResult) JSON.deserialize(
+                      getResultJson(record),
+                      Database.UpsertResult.class
+                  )
+                : externalIdField != null
+                      ? System.Database.upsert(
+                            record,
+                            externalIdField,
+                            allOrNone
+                        )
+                      : System.Database.upsert(record, allOrNone);
         }
         public virtual Database.UpsertResult upsertRecords(
             SObject record,
@@ -1010,14 +1023,19 @@ public virtual inherited sharing class Proxy {
             Boolean allOrNone,
             System.AccessLevel accessLevel
         ) {
-            return externalIdField != null
-                ? System.Database.upsert(
-                      record,
-                      externalIdField,
-                      allOrNone,
-                      accessLevel
+            return isMocking
+                ? (Database.UpsertResult) JSON.deserialize(
+                      getResultJson(record),
+                      Database.UpsertResult.class
                   )
-                : System.Database.upsert(record, allOrNone, accessLevel);
+                : externalIdField != null
+                      ? System.Database.upsert(
+                            record,
+                            externalIdField,
+                            allOrNone,
+                            accessLevel
+                        )
+                      : System.Database.upsert(record, allOrNone, accessLevel);
         }
         // upsert - list
         public virtual List<Database.UpsertResult> upsertRecords(
@@ -1042,9 +1060,18 @@ public virtual inherited sharing class Proxy {
             Schema.SObjectField externalIdField,
             Boolean allOrNone
         ) {
-            return externalIdField != null
-                ? System.Database.upsert(records, externalIdField, allOrNone)
-                : System.Database.upsert(records, allOrNone);
+            return isMocking
+                ? (List<Database.UpsertResult>) JSON.deserialize(
+                      getResultJson(records),
+                      List<Database.UpsertResult>.class
+                  )
+                : externalIdField != null
+                      ? System.Database.upsert(
+                            records,
+                            externalIdField,
+                            allOrNone
+                        )
+                      : System.Database.upsert(records, allOrNone);
         }
         public virtual List<Database.UpsertResult> upsertRecords(
             List<SObject> records,
@@ -1059,14 +1086,19 @@ public virtual inherited sharing class Proxy {
             Boolean allOrNone,
             System.AccessLevel accessLevel
         ) {
-            return externalIdField != null
-                ? System.Database.upsert(
-                      records,
-                      externalIdField,
-                      allOrNone,
-                      accessLevel
+            return isMocking
+                ? (List<Database.UpsertResult>) JSON.deserialize(
+                      getResultJson(records),
+                      List<Database.UpsertResult>.class
                   )
-                : System.Database.upsert(records, allOrNone, accessLevel);
+                : externalIdField != null
+                      ? System.Database.upsert(
+                            records,
+                            externalIdField,
+                            allOrNone,
+                            accessLevel
+                        )
+                      : System.Database.upsert(records, allOrNone, accessLevel);
         }
         // delete - single SObject
         public virtual Database.DeleteResult deleteRecords(SObject record) {
@@ -1076,14 +1108,24 @@ public virtual inherited sharing class Proxy {
             SObject record,
             Boolean allOrNone
         ) {
-            return System.Database.delete(record, allOrNone);
+            return isMocking
+                ? (Database.DeleteResult) JSON.deserialize(
+                      getResultJson(record),
+                      Database.DeleteResult.class
+                  )
+                : System.Database.delete(record, allOrNone);
         }
         public virtual Database.DeleteResult deleteRecords(
             SObject record,
             Boolean allOrNone,
             System.AccessLevel accessLevel
         ) {
-            return System.Database.delete(record, allOrNone, accessLevel);
+            return isMocking
+                ? (Database.DeleteResult) JSON.deserialize(
+                      getResultJson(record),
+                      Database.DeleteResult.class
+                  )
+                : System.Database.delete(record, allOrNone, accessLevel);
         }
         // delete - single Id
         public virtual Database.DeleteResult deleteRecords(Id recordId) {
@@ -1093,14 +1135,24 @@ public virtual inherited sharing class Proxy {
             Id recordId,
             Boolean allOrNone
         ) {
-            return System.Database.delete(recordId, allOrNone);
+            return isMocking
+                ? (Database.DeleteResult) JSON.deserialize(
+                      getResultJson(recordId),
+                      Database.DeleteResult.class
+                  )
+                : System.Database.delete(recordId, allOrNone);
         }
         public virtual Database.DeleteResult deleteRecords(
             Id recordId,
             Boolean allOrNone,
             System.AccessLevel accessLevel
         ) {
-            return System.Database.delete(recordId, allOrNone, accessLevel);
+            return isMocking
+                ? (Database.DeleteResult) JSON.deserialize(
+                      getResultJson(recordId),
+                      Database.DeleteResult.class
+                  )
+                : System.Database.delete(recordId, allOrNone, accessLevel);
         }
         // delete - list SObject
         public virtual List<Database.DeleteResult> deleteRecords(
@@ -1112,14 +1164,24 @@ public virtual inherited sharing class Proxy {
             List<SObject> records,
             Boolean allOrNone
         ) {
-            return System.Database.delete(records, allOrNone);
+            return isMocking
+                ? (List<Database.DeleteResult>) JSON.deserialize(
+                      getResultJson(records),
+                      List<Database.DeleteResult>.class
+                  )
+                : System.Database.delete(records, allOrNone);
         }
         public virtual List<Database.DeleteResult> deleteRecords(
             List<SObject> records,
             Boolean allOrNone,
             System.AccessLevel accessLevel
         ) {
-            return System.Database.delete(records, allOrNone, accessLevel);
+            return isMocking
+                ? (List<Database.DeleteResult>) JSON.deserialize(
+                      getResultJson(records),
+                      List<Database.DeleteResult>.class
+                  )
+                : System.Database.delete(records, allOrNone, accessLevel);
         }
         // delete - list Id
         public virtual List<Database.DeleteResult> deleteRecords(
@@ -1131,14 +1193,24 @@ public virtual inherited sharing class Proxy {
             List<Id> recordIds,
             Boolean allOrNone
         ) {
-            return System.Database.delete(recordIds, allOrNone);
+            return isMocking
+                ? (List<Database.DeleteResult>) JSON.deserialize(
+                      getResultJson(recordIds),
+                      List<Database.DeleteResult>.class
+                  )
+                : System.Database.delete(recordIds, allOrNone);
         }
         public virtual List<Database.DeleteResult> deleteRecords(
             List<Id> recordIds,
             Boolean allOrNone,
             System.AccessLevel accessLevel
         ) {
-            return System.Database.delete(recordIds, allOrNone, accessLevel);
+            return isMocking
+                ? (List<Database.DeleteResult>) JSON.deserialize(
+                      getResultJson(recordIds),
+                      List<Database.DeleteResult>.class
+                  )
+                : System.Database.delete(recordIds, allOrNone, accessLevel);
         }
         // undelete - single SObject
         public virtual Database.UndeleteResult undeleteRecords(SObject record) {
@@ -1148,14 +1220,24 @@ public virtual inherited sharing class Proxy {
             SObject record,
             Boolean allOrNone
         ) {
-            return System.Database.undelete(record, allOrNone);
+            return isMocking
+                ? (Database.UndeleteResult) JSON.deserialize(
+                      getResultJson(record),
+                      Database.UndeleteResult.class
+                  )
+                : System.Database.undelete(record, allOrNone);
         }
         public virtual Database.UndeleteResult undeleteRecords(
             SObject record,
             Boolean allOrNone,
             System.AccessLevel accessLevel
         ) {
-            return System.Database.undelete(record, allOrNone, accessLevel);
+            return isMocking
+                ? (Database.UndeleteResult) JSON.deserialize(
+                      getResultJson(record),
+                      Database.UndeleteResult.class
+                  )
+                : System.Database.undelete(record, allOrNone, accessLevel);
         }
         // undelete - single Id
         public virtual Database.UndeleteResult undeleteRecords(Id recordId) {
@@ -1165,14 +1247,24 @@ public virtual inherited sharing class Proxy {
             Id recordId,
             Boolean allOrNone
         ) {
-            return System.Database.undelete(recordId, allOrNone);
+            return isMocking
+                ? (Database.UndeleteResult) JSON.deserialize(
+                      getResultJson(recordId),
+                      Database.UndeleteResult.class
+                  )
+                : System.Database.undelete(recordId, allOrNone);
         }
         public virtual Database.UndeleteResult undeleteRecords(
             Id recordId,
             Boolean allOrNone,
             System.AccessLevel accessLevel
         ) {
-            return System.Database.undelete(recordId, allOrNone, accessLevel);
+            return isMocking
+                ? (Database.UndeleteResult) JSON.deserialize(
+                      getResultJson(recordId),
+                      Database.UndeleteResult.class
+                  )
+                : System.Database.undelete(recordId, allOrNone, accessLevel);
         }
         // undelete - list SObject
         public virtual List<Database.UndeleteResult> undeleteRecords(
@@ -1184,14 +1276,24 @@ public virtual inherited sharing class Proxy {
             List<SObject> records,
             Boolean allOrNone
         ) {
-            return System.Database.undelete(records, allOrNone);
+            return isMocking
+                ? (List<Database.UndeleteResult>) JSON.deserialize(
+                      getResultJson(records),
+                      List<Database.UndeleteResult>.class
+                  )
+                : System.Database.undelete(records, allOrNone);
         }
         public virtual List<Database.UndeleteResult> undeleteRecords(
             List<SObject> records,
             Boolean allOrNone,
             System.AccessLevel accessLevel
         ) {
-            return System.Database.undelete(records, allOrNone, accessLevel);
+            return isMocking
+                ? (List<Database.UndeleteResult>) JSON.deserialize(
+                      getResultJson(records),
+                      List<Database.UndeleteResult>.class
+                  )
+                : System.Database.undelete(records, allOrNone, accessLevel);
         }
         // undelete - list Id
         public virtual List<Database.UndeleteResult> undeleteRecords(
@@ -1203,14 +1305,57 @@ public virtual inherited sharing class Proxy {
             List<Id> recordIds,
             Boolean allOrNone
         ) {
-            return System.Database.undelete(recordIds, allOrNone);
+            return isMocking
+                ? (List<Database.UndeleteResult>) JSON.deserialize(
+                      getResultJson(recordIds),
+                      List<Database.UndeleteResult>.class
+                  )
+                : System.Database.undelete(recordIds, allOrNone);
         }
         public virtual List<Database.UndeleteResult> undeleteRecords(
             List<Id> recordIds,
             Boolean allOrNone,
             System.AccessLevel accessLevel
         ) {
-            return System.Database.undelete(recordIds, allOrNone, accessLevel);
+            return isMocking
+                ? (List<Database.UndeleteResult>) JSON.deserialize(
+                      getResultJson(recordIds),
+                      List<Database.UndeleteResult>.class
+                  )
+                : System.Database.undelete(recordIds, allOrNone, accessLevel);
+        }
+
+        private String getResultJson(List<SObject> sobjects) {
+            List<Id> ids = new List<Id>();
+            for (SObject sobj : sobjects) {
+                // in insert scenarios sobjects won't have an id, so create one
+                if (sobj.Id == null) {
+                    Proxy.mock.setFauxId(sobj);
+                }
+                ids.add(sobj.Id);
+            }
+
+            return getResultJson(ids);
+        }
+
+        private String getResultJson(SObject sobj) {
+            // in insert scenarios sobjects won't have an id, so create one
+            if (sobj.Id == null) {
+                Proxy.mock.setFauxId(sobj);
+            }
+
+            return getResultJson(sobj.Id);
+        }
+
+        private String getResultJson(List<Id> sobjectIds) {
+            List<String> recordJsons = new List<String>();
+            for (Id sobjId : sobjectIds) {
+                recordJsons.add(getResultJson(sobjId));
+            }
+            return '[' + String.join(recordJsons, ',') + ']';
+        }
+        private String getResultJson(Id sobjectId) {
+            return '{"id":"' + sobjectId + '", "success": true}';
         }
     }
 
