@@ -265,6 +265,16 @@ public virtual inherited sharing class Proxy {
          * MOCK REFLECT API: allows extending class to override
          ******************************************************************/
 
+        /** @description use to introspect a value passed to the reflect api with this key */
+        public void trapMock(String key) {
+            trapMock(key, null);
+        }
+
+        /** @description use to **replace the return value** of a value passed to the reflect api with this key */
+        public void trapMock(String key, Object value) {
+            trapMocks.put(key, value);
+        }
+
         public virtual override Object trap(Object value, String key) {
             trapAudit(value, key);
             // return either of the mocked key's value or the actual value
@@ -281,19 +291,19 @@ public virtual inherited sharing class Proxy {
             this.trapAudit.put(key ?? '', value);
         }
 
-        /** @description use to introspect a value passed to the reflect api with this key */
-        public void trapMock(String key) {
-            trapMock(key, null);
-        }
-
-        /** @description use to **replace the return value** of a value passed to the reflect api with this key */
-        public void trapMock(String key, Object value) {
-            trapMocks.put(key, value);
-        }
-
         /******************************************************************
          * MOCK READ API: allows extending class to override
          ******************************************************************/
+
+        /** @description Generate a MockReader instance for the Type to mock */
+        public MockReader mockReader(System.Type readerType) {
+            MockReader mocker = new MockReader();
+            String fullyQualifiedName = readerType.getName();
+            String normalizedName = normalizeClassName(readerType);
+            readMocks.put(normalizedName, mocker);
+
+            return mocker;
+        }
 
         /** @description db.read() mock INLINE-STYLE */
         public virtual List<SObject> query(
@@ -332,16 +342,6 @@ public virtual inherited sharing class Proxy {
                 this.readAudit.put(readerName, new List<List<SObject>>());
             }
             this.readAudit.get(readerName).add(readRecords);
-        }
-
-        /** @description Generate a MockReader instance for the Type to mock */
-        public MockReader mockReader(System.Type readerType) {
-            MockReader mocker = new MockReader();
-            String fullyQualifiedName = readerType.getName();
-            String normalizedName = normalizeClassName(readerType);
-            readMocks.put(normalizedName, mocker);
-
-            return mocker;
         }
 
         /******************************************************************
