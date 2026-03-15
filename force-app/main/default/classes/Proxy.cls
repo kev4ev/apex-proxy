@@ -2,9 +2,9 @@
  * @version 2.0.0
  * @description Provides APIs for trapping database reads and writes and variable assignments.
  * TOP-LEVEL APIs:
- *  1. reflect
- *  2. db (pseudo namespace for db read/write operations)
- *  3. mock (only available during unit test execution)
+ *  1. reflect: for trapping and manipulating variable assignments
+ *  2. database: read and mutation APIs
+ *  3. mock: only available during unit test execution
  * Provided under the MIT License github.com/kev4ev/apex-proxy
  */
 
@@ -56,7 +56,7 @@ public virtual inherited sharing class Proxy {
 
     /****************************************************************************************
      * REFLECT API
-     * A simple API for trapping and assignments
+     * A simple static API for trapping variable assignments
      ****************************************************************************************/
 
     public static Object reflect(Object value) {
@@ -76,61 +76,57 @@ public virtual inherited sharing class Proxy {
     }
 
     /****************************************************************************************
-     * db "Namespace"
-     * Database read and mutation APIs.
+     * DATABASE API
+     * Read and mutation APIs for database operations.
      ****************************************************************************************/
 
-    public static Db db {
+    /** @description acts as a pseudo "db" namespace */
+    public static Proxy db {
         get {
-            return singleton.dbApi;
+            return singleton;
         }
     }
-    protected Db dbApi = new Db();
-    public virtual class Db extends DbWrite {
-        private Db() {
-        }
 
-        /***************
-         * DB READ API
-         ***************/
+    /***************
+     * READ API
+     ***************/
 
-        /** INLINE STYLE: best for greenfield and/or quick implementations */
+    /** INLINE STYLE: best for greenfield and/or quick implementations */
 
-        public virtual List<SObject> query(
-            List<SObject> records,
-            System.Type caller
-        ) {
-            return this.query(records, caller, null);
-        }
-
-        public virtual List<SObject> query(
-            List<SObject> records,
-            System.Type caller,
-            Object readContext
-        ) {
-            return records;
-        }
-
-        /** IMPLEMENTATION STYLE: best for use with existing frameworks or patterns like FFLIB / Selector pattern */
-
-        public virtual List<SObject> read(DbReader reader) {
-            return this.read(reader, null);
-        }
-
-        public virtual List<SObject> read(DbReader reader, Object readContext) {
-            return reader.read(readContext);
-        }
-
-        /***************
-         * DB WRITE API
-         * DbWrite class included at far bottom for brevity.
-         * Mirrors all Database insert/update/upsert/delete/undelete methods.
-         ***************/
+    public virtual List<SObject> query(
+        List<SObject> records,
+        System.Type caller
+    ) {
+        return this.query(records, caller, null);
     }
+
+    public virtual List<SObject> query(
+        List<SObject> records,
+        System.Type caller,
+        Object readContext
+    ) {
+        return records;
+    }
+
+    /** IMPLEMENTATION STYLE: best for use with existing frameworks or patterns like FFLIB / Selector pattern */
 
     public interface DbReader {
         List<SObject> read(Object readContext);
     }
+
+    public virtual List<SObject> read(DbReader reader) {
+        return this.read(reader, null);
+    }
+
+    public virtual List<SObject> read(DbReader reader, Object readContext) {
+        return reader.read(readContext);
+    }
+
+    /***************
+     * MUTATION API
+     * Methods included at far bottom for easier reading.
+     * Mirrors all System.Database class insert/update/upsert/delete/undelete methods.
+     ***************/
 
     /****************************************************************************************
      * MOCK API:
@@ -140,7 +136,7 @@ public virtual inherited sharing class Proxy {
      ****************************************************************************************/
     private static Boolean isMocking = false;
 
-    /** @description Acts as a pseudo-ns */
+    /** @description Acts as a pseudo "mock" namespace */
     public static Mock mock {
         get {
             return mockSingleton;
@@ -171,6 +167,12 @@ public virtual inherited sharing class Proxy {
         return customMock;
     }
 
+    public virtual class ContextDependentMockReader {
+        public virtual Boolean useForContext(Object context) {
+            return true;
+        }
+    }
+
     public virtual class Mock extends Proxy {
         private Map<Schema.SObjectType, Integer> recordIdCounter = new Map<Schema.SObjectType, Integer>();
         private Map<String, MockReader> readMocks = new Map<String, MockReader>();
@@ -187,7 +189,6 @@ public virtual inherited sharing class Proxy {
                     'Mock api is only available during Apex test execution.'
                 );
             }
-            this.dbApi = new DbApiStub(this);
         }
 
         /************************************************************
@@ -265,6 +266,12 @@ public virtual inherited sharing class Proxy {
          * MOCK REFLECT API: allows extending class to override
          ******************************************************************/
 
+        public virtual override Object trap(Object value, String key) {
+            trapAudit(value, key);
+            // return either of the mocked key's value or the actual value
+            return trapMocks.get(key) ?? value;
+        }
+
         /** @description use to introspect a value passed to the reflect api with this key */
         public void trapMock(String key) {
             trapMock(key, null);
@@ -273,12 +280,6 @@ public virtual inherited sharing class Proxy {
         /** @description use to **replace the return value** of a value passed to the reflect api with this key */
         public void trapMock(String key, Object value) {
             trapMocks.put(key, value);
-        }
-
-        public virtual override Object trap(Object value, String key) {
-            trapAudit(value, key);
-            // return either of the mocked key's value or the actual value
-            return trapMocks.get(key) ?? value;
         }
 
         /** @description Available for use by overriding classes */
@@ -306,7 +307,7 @@ public virtual inherited sharing class Proxy {
         }
 
         /** @description db.read() mock INLINE-STYLE */
-        public virtual List<SObject> query(
+        public virtual override List<SObject> query(
             List<SObject> records,
             System.Type caller,
             Object readContext
@@ -323,7 +324,10 @@ public virtual inherited sharing class Proxy {
         }
 
         /** @description db.read() mock IMPLEMENTATION-STYLE */
-        public virtual List<SObject> read(DbReader reader, Object readContext) {
+        public virtual override List<SObject> read(
+            DbReader reader,
+            Object readContext
+        ) {
             String readerName = normalizeClassName(reader);
             // return either the previously-suplied mock reader or the passed one
             MockReader mocker = readMocks.get(readerName);
@@ -345,31 +349,8 @@ public virtual inherited sharing class Proxy {
         }
 
         /******************************************************************
-         * MOCK WRITE API: mocking handled OOB by DbWrite class
+         * MOCK MUTATION API: mocking handled OOB by mutation api methods
          ******************************************************************/
-    }
-
-    /** @description A stubbed Db class that merely delegates back to the appropriate Mock method */
-    private class DbApiStub extends Db {
-        private Mock mock;
-        private DbApiStub(Mock mock) {
-            this.mock = mock;
-        }
-
-        public override List<SObject> query(
-            List<SObject> records,
-            System.Type caller,
-            Object readContext
-        ) {
-            return this.mock.query(records, caller, readContext);
-        }
-
-        public override List<SObject> read(
-            DbReader reader,
-            Object readContext
-        ) {
-            return this.mock.read(reader, readContext);
-        }
     }
 
     /**
@@ -784,592 +765,587 @@ public virtual inherited sharing class Proxy {
         return innermost.toLowerCase();
     }
 
-    public virtual class DbWrite {
-        // insert - single record
-        public virtual Database.SaveResult insertRecords(SObject record) {
-            return insertRecords(record, false);
-        }
-        public virtual Database.SaveResult insertRecords(
-            SObject record,
-            Boolean allOrNone
-        ) {
-            return isMocking
-                ? (Database.SaveResult) JSON.deserialize(
-                      getResultJson(record),
-                      Database.SaveResult.class
-                  )
-                : System.Database.insert(record, allOrNone);
-        }
-        public virtual Database.SaveResult insertRecords(
-            SObject record,
-            Database.DMLOptions dmlOptions
-        ) {
-            return isMocking
-                ? (Database.SaveResult) JSON.deserialize(
-                      getResultJson(record),
-                      Database.SaveResult.class
-                  )
-                : System.Database.insert(record, dmlOptions);
-        }
-        public virtual Database.SaveResult insertRecords(
-            SObject record,
-            Boolean allOrNone,
-            System.AccessLevel accessLevel
-        ) {
-            return isMocking
-                ? (Database.SaveResult) JSON.deserialize(
-                      getResultJson(record),
-                      Database.SaveResult.class
-                  )
-                : System.Database.insert(record, allOrNone, accessLevel);
-        }
-        public virtual Database.SaveResult insertRecords(
-            SObject record,
-            Database.DMLOptions dmlOptions,
-            System.AccessLevel accessLevel
-        ) {
-            return isMocking
-                ? (Database.SaveResult) JSON.deserialize(
-                      getResultJson(record),
-                      Database.SaveResult.class
-                  )
-                : System.Database.insert(record, dmlOptions, accessLevel);
-        }
-        // insert - list
-        public virtual List<Database.SaveResult> insertRecords(
-            List<SObject> records
-        ) {
-            return insertRecords(records, false);
-        }
-        public virtual List<Database.SaveResult> insertRecords(
-            List<SObject> records,
-            Boolean allOrNone
-        ) {
-            return isMocking
-                ? (List<Database.SaveResult>) JSON.deserialize(
-                      getResultJson(records),
-                      List<Database.SaveResult>.class
-                  )
-                : System.Database.insert(records, allOrNone);
-        }
-        public virtual List<Database.SaveResult> insertRecords(
-            List<SObject> records,
-            Database.DMLOptions dmlOptions
-        ) {
-            return isMocking
-                ? (List<Database.SaveResult>) JSON.deserialize(
-                      getResultJson(records),
-                      List<Database.SaveResult>.class
-                  )
-                : System.Database.insert(records, dmlOptions);
-        }
-        public virtual List<Database.SaveResult> insertRecords(
-            List<SObject> records,
-            Boolean allOrNone,
-            System.AccessLevel accessLevel
-        ) {
-            return isMocking
-                ? (List<Database.SaveResult>) JSON.deserialize(
-                      getResultJson(records),
-                      List<Database.SaveResult>.class
-                  )
-                : System.Database.insert(records, allOrNone, accessLevel);
-        }
-        public virtual List<Database.SaveResult> insertRecords(
-            List<SObject> records,
-            Database.DMLOptions dmlOptions,
-            System.AccessLevel accessLevel
-        ) {
-            return isMocking
-                ? (List<Database.SaveResult>) JSON.deserialize(
-                      getResultJson(records),
-                      List<Database.SaveResult>.class
-                  )
-                : System.Database.insert(records, dmlOptions, accessLevel);
-        }
-        // update - single record
-        public virtual Database.SaveResult updateRecords(SObject record) {
-            return updateRecords(record, false);
-        }
-        public virtual Database.SaveResult updateRecords(
-            SObject record,
-            Boolean allOrNone
-        ) {
-            return isMocking
-                ? (Database.SaveResult) JSON.deserialize(
-                      getResultJson(record),
-                      Database.SaveResult.class
-                  )
-                : System.Database.update(record, allOrNone);
-        }
-        public virtual Database.SaveResult updateRecords(
-            SObject record,
-            Database.DMLOptions dmlOptions
-        ) {
-            return isMocking
-                ? (Database.SaveResult) JSON.deserialize(
-                      getResultJson(record),
-                      Database.SaveResult.class
-                  )
-                : System.Database.update(record, dmlOptions);
-        }
-        public virtual Database.SaveResult updateRecords(
-            SObject record,
-            Boolean allOrNone,
-            System.AccessLevel accessLevel
-        ) {
-            return isMocking
-                ? (Database.SaveResult) JSON.deserialize(
-                      getResultJson(record),
-                      Database.SaveResult.class
-                  )
-                : System.Database.update(record, allOrNone, accessLevel);
-        }
-        public virtual Database.SaveResult updateRecords(
-            SObject record,
-            Database.DMLOptions dmlOptions,
-            System.AccessLevel accessLevel
-        ) {
-            return isMocking
-                ? (Database.SaveResult) JSON.deserialize(
-                      getResultJson(record),
-                      Database.SaveResult.class
-                  )
-                : System.Database.update(record, dmlOptions, accessLevel);
-        }
-        // update - list
-        public virtual List<Database.SaveResult> updateRecords(
-            List<SObject> records
-        ) {
-            return updateRecords(records, false);
-        }
-        public virtual List<Database.SaveResult> updateRecords(
-            List<SObject> records,
-            Boolean allOrNone
-        ) {
-            return isMocking
-                ? (List<Database.SaveResult>) JSON.deserialize(
-                      getResultJson(records),
-                      List<Database.SaveResult>.class
-                  )
-                : System.Database.update(records, allOrNone);
-        }
-        public virtual List<Database.SaveResult> updateRecords(
-            List<SObject> records,
-            Database.DMLOptions dmlOptions
-        ) {
-            return isMocking
-                ? (List<Database.SaveResult>) JSON.deserialize(
-                      getResultJson(records),
-                      List<Database.SaveResult>.class
-                  )
-                : System.Database.update(records, dmlOptions);
-        }
-        public virtual List<Database.SaveResult> updateRecords(
-            List<SObject> records,
-            Boolean allOrNone,
-            System.AccessLevel accessLevel
-        ) {
-            return isMocking
-                ? (List<Database.SaveResult>) JSON.deserialize(
-                      getResultJson(records),
-                      List<Database.SaveResult>.class
-                  )
-                : System.Database.update(records, allOrNone, accessLevel);
-        }
-        public virtual List<Database.SaveResult> updateRecords(
-            List<SObject> records,
-            Database.DMLOptions dmlOptions,
-            System.AccessLevel accessLevel
-        ) {
-            return isMocking
-                ? (List<Database.SaveResult>) JSON.deserialize(
-                      getResultJson(records),
-                      List<Database.SaveResult>.class
-                  )
-                : System.Database.update(records, dmlOptions, accessLevel);
-        }
-        // upsert - single record
-        public virtual Database.UpsertResult upsertRecords(SObject record) {
-            return upsertRecords(record, null, false);
-        }
-        public virtual Database.UpsertResult upsertRecords(
-            SObject record,
-            Boolean allOrNone
-        ) {
-            return upsertRecords(record, null, allOrNone);
-        }
-        public virtual Database.UpsertResult upsertRecords(
-            SObject record,
-            Schema.SObjectField externalIdField
-        ) {
-            return upsertRecords(record, externalIdField, false);
-        }
-        public virtual Database.UpsertResult upsertRecords(
-            SObject record,
-            Schema.SObjectField externalIdField,
-            Boolean allOrNone
-        ) {
-            return isMocking
-                ? (Database.UpsertResult) JSON.deserialize(
-                      getResultJson(record),
-                      Database.UpsertResult.class
-                  )
-                : externalIdField != null
-                      ? System.Database.upsert(
-                            record,
-                            externalIdField,
-                            allOrNone
-                        )
-                      : System.Database.upsert(record, allOrNone);
-        }
-        public virtual Database.UpsertResult upsertRecords(
-            SObject record,
-            Boolean allOrNone,
-            System.AccessLevel accessLevel
-        ) {
-            return upsertRecords(record, null, allOrNone, accessLevel);
-        }
-        public virtual Database.UpsertResult upsertRecords(
-            SObject record,
-            Schema.SObjectField externalIdField,
-            Boolean allOrNone,
-            System.AccessLevel accessLevel
-        ) {
-            return isMocking
-                ? (Database.UpsertResult) JSON.deserialize(
-                      getResultJson(record),
-                      Database.UpsertResult.class
-                  )
-                : externalIdField != null
-                      ? System.Database.upsert(
-                            record,
-                            externalIdField,
-                            allOrNone,
-                            accessLevel
-                        )
-                      : System.Database.upsert(record, allOrNone, accessLevel);
-        }
-        // upsert - list
-        public virtual List<Database.UpsertResult> upsertRecords(
-            List<SObject> records
-        ) {
-            return upsertRecords(records, null, false);
-        }
-        public virtual List<Database.UpsertResult> upsertRecords(
-            List<SObject> records,
-            Boolean allOrNone
-        ) {
-            return upsertRecords(records, null, allOrNone);
-        }
-        public virtual List<Database.UpsertResult> upsertRecords(
-            List<SObject> records,
-            Schema.SObjectField externalIdField
-        ) {
-            return upsertRecords(records, externalIdField, false);
-        }
-        public virtual List<Database.UpsertResult> upsertRecords(
-            List<SObject> records,
-            Schema.SObjectField externalIdField,
-            Boolean allOrNone
-        ) {
-            return isMocking
-                ? (List<Database.UpsertResult>) JSON.deserialize(
-                      getResultJson(records),
-                      List<Database.UpsertResult>.class
-                  )
-                : externalIdField != null
-                      ? System.Database.upsert(
-                            records,
-                            externalIdField,
-                            allOrNone
-                        )
-                      : System.Database.upsert(records, allOrNone);
-        }
-        public virtual List<Database.UpsertResult> upsertRecords(
-            List<SObject> records,
-            Boolean allOrNone,
-            System.AccessLevel accessLevel
-        ) {
-            return upsertRecords(records, null, allOrNone, accessLevel);
-        }
-        public virtual List<Database.UpsertResult> upsertRecords(
-            List<SObject> records,
-            Schema.SObjectField externalIdField,
-            Boolean allOrNone,
-            System.AccessLevel accessLevel
-        ) {
-            return isMocking
-                ? (List<Database.UpsertResult>) JSON.deserialize(
-                      getResultJson(records),
-                      List<Database.UpsertResult>.class
-                  )
-                : externalIdField != null
-                      ? System.Database.upsert(
-                            records,
-                            externalIdField,
-                            allOrNone,
-                            accessLevel
-                        )
-                      : System.Database.upsert(records, allOrNone, accessLevel);
-        }
-        // delete - single SObject
-        public virtual Database.DeleteResult deleteRecords(SObject record) {
-            return deleteRecords(record, false);
-        }
-        public virtual Database.DeleteResult deleteRecords(
-            SObject record,
-            Boolean allOrNone
-        ) {
-            return isMocking
-                ? (Database.DeleteResult) JSON.deserialize(
-                      getResultJson(record),
-                      Database.DeleteResult.class
-                  )
-                : System.Database.delete(record, allOrNone);
-        }
-        public virtual Database.DeleteResult deleteRecords(
-            SObject record,
-            Boolean allOrNone,
-            System.AccessLevel accessLevel
-        ) {
-            return isMocking
-                ? (Database.DeleteResult) JSON.deserialize(
-                      getResultJson(record),
-                      Database.DeleteResult.class
-                  )
-                : System.Database.delete(record, allOrNone, accessLevel);
-        }
-        // delete - single Id
-        public virtual Database.DeleteResult deleteRecords(Id recordId) {
-            return deleteRecords(recordId, false);
-        }
-        public virtual Database.DeleteResult deleteRecords(
-            Id recordId,
-            Boolean allOrNone
-        ) {
-            return isMocking
-                ? (Database.DeleteResult) JSON.deserialize(
-                      getResultJson(recordId),
-                      Database.DeleteResult.class
-                  )
-                : System.Database.delete(recordId, allOrNone);
-        }
-        public virtual Database.DeleteResult deleteRecords(
-            Id recordId,
-            Boolean allOrNone,
-            System.AccessLevel accessLevel
-        ) {
-            return isMocking
-                ? (Database.DeleteResult) JSON.deserialize(
-                      getResultJson(recordId),
-                      Database.DeleteResult.class
-                  )
-                : System.Database.delete(recordId, allOrNone, accessLevel);
-        }
-        // delete - list SObject
-        public virtual List<Database.DeleteResult> deleteRecords(
-            List<SObject> records
-        ) {
-            return deleteRecords(records, false);
-        }
-        public virtual List<Database.DeleteResult> deleteRecords(
-            List<SObject> records,
-            Boolean allOrNone
-        ) {
-            return isMocking
-                ? (List<Database.DeleteResult>) JSON.deserialize(
-                      getResultJson(records),
-                      List<Database.DeleteResult>.class
-                  )
-                : System.Database.delete(records, allOrNone);
-        }
-        public virtual List<Database.DeleteResult> deleteRecords(
-            List<SObject> records,
-            Boolean allOrNone,
-            System.AccessLevel accessLevel
-        ) {
-            return isMocking
-                ? (List<Database.DeleteResult>) JSON.deserialize(
-                      getResultJson(records),
-                      List<Database.DeleteResult>.class
-                  )
-                : System.Database.delete(records, allOrNone, accessLevel);
-        }
-        // delete - list Id
-        public virtual List<Database.DeleteResult> deleteRecords(
-            List<Id> recordIds
-        ) {
-            return deleteRecords(recordIds, false);
-        }
-        public virtual List<Database.DeleteResult> deleteRecords(
-            List<Id> recordIds,
-            Boolean allOrNone
-        ) {
-            return isMocking
-                ? (List<Database.DeleteResult>) JSON.deserialize(
-                      getResultJson(recordIds),
-                      List<Database.DeleteResult>.class
-                  )
-                : System.Database.delete(recordIds, allOrNone);
-        }
-        public virtual List<Database.DeleteResult> deleteRecords(
-            List<Id> recordIds,
-            Boolean allOrNone,
-            System.AccessLevel accessLevel
-        ) {
-            return isMocking
-                ? (List<Database.DeleteResult>) JSON.deserialize(
-                      getResultJson(recordIds),
-                      List<Database.DeleteResult>.class
-                  )
-                : System.Database.delete(recordIds, allOrNone, accessLevel);
-        }
-        // undelete - single SObject
-        public virtual Database.UndeleteResult undeleteRecords(SObject record) {
-            return undeleteRecords(record, false);
-        }
-        public virtual Database.UndeleteResult undeleteRecords(
-            SObject record,
-            Boolean allOrNone
-        ) {
-            return isMocking
-                ? (Database.UndeleteResult) JSON.deserialize(
-                      getResultJson(record),
-                      Database.UndeleteResult.class
-                  )
-                : System.Database.undelete(record, allOrNone);
-        }
-        public virtual Database.UndeleteResult undeleteRecords(
-            SObject record,
-            Boolean allOrNone,
-            System.AccessLevel accessLevel
-        ) {
-            return isMocking
-                ? (Database.UndeleteResult) JSON.deserialize(
-                      getResultJson(record),
-                      Database.UndeleteResult.class
-                  )
-                : System.Database.undelete(record, allOrNone, accessLevel);
-        }
-        // undelete - single Id
-        public virtual Database.UndeleteResult undeleteRecords(Id recordId) {
-            return undeleteRecords(recordId, false);
-        }
-        public virtual Database.UndeleteResult undeleteRecords(
-            Id recordId,
-            Boolean allOrNone
-        ) {
-            return isMocking
-                ? (Database.UndeleteResult) JSON.deserialize(
-                      getResultJson(recordId),
-                      Database.UndeleteResult.class
-                  )
-                : System.Database.undelete(recordId, allOrNone);
-        }
-        public virtual Database.UndeleteResult undeleteRecords(
-            Id recordId,
-            Boolean allOrNone,
-            System.AccessLevel accessLevel
-        ) {
-            return isMocking
-                ? (Database.UndeleteResult) JSON.deserialize(
-                      getResultJson(recordId),
-                      Database.UndeleteResult.class
-                  )
-                : System.Database.undelete(recordId, allOrNone, accessLevel);
-        }
-        // undelete - list SObject
-        public virtual List<Database.UndeleteResult> undeleteRecords(
-            List<SObject> records
-        ) {
-            return undeleteRecords(records, false);
-        }
-        public virtual List<Database.UndeleteResult> undeleteRecords(
-            List<SObject> records,
-            Boolean allOrNone
-        ) {
-            return isMocking
-                ? (List<Database.UndeleteResult>) JSON.deserialize(
-                      getResultJson(records),
-                      List<Database.UndeleteResult>.class
-                  )
-                : System.Database.undelete(records, allOrNone);
-        }
-        public virtual List<Database.UndeleteResult> undeleteRecords(
-            List<SObject> records,
-            Boolean allOrNone,
-            System.AccessLevel accessLevel
-        ) {
-            return isMocking
-                ? (List<Database.UndeleteResult>) JSON.deserialize(
-                      getResultJson(records),
-                      List<Database.UndeleteResult>.class
-                  )
-                : System.Database.undelete(records, allOrNone, accessLevel);
-        }
-        // undelete - list Id
-        public virtual List<Database.UndeleteResult> undeleteRecords(
-            List<Id> recordIds
-        ) {
-            return undeleteRecords(recordIds, false);
-        }
-        public virtual List<Database.UndeleteResult> undeleteRecords(
-            List<Id> recordIds,
-            Boolean allOrNone
-        ) {
-            return isMocking
-                ? (List<Database.UndeleteResult>) JSON.deserialize(
-                      getResultJson(recordIds),
-                      List<Database.UndeleteResult>.class
-                  )
-                : System.Database.undelete(recordIds, allOrNone);
-        }
-        public virtual List<Database.UndeleteResult> undeleteRecords(
-            List<Id> recordIds,
-            Boolean allOrNone,
-            System.AccessLevel accessLevel
-        ) {
-            return isMocking
-                ? (List<Database.UndeleteResult>) JSON.deserialize(
-                      getResultJson(recordIds),
-                      List<Database.UndeleteResult>.class
-                  )
-                : System.Database.undelete(recordIds, allOrNone, accessLevel);
-        }
+    /***************
+     * DATABASE MUTATION API
+     * Mirrors all System.Database class insert/update/upsert/delete/undelete methods.
+     ***************/
 
-        private String getResultJson(List<SObject> sobjects) {
-            List<Id> ids = new List<Id>();
-            for (SObject sobj : sobjects) {
-                // in insert scenarios sobjects won't have an id, so create one
-                if (sobj.Id == null) {
-                    Proxy.mock.setFauxId(sobj);
-                }
-                ids.add(sobj.Id);
-            }
+    // insert - single record
+    public virtual Database.SaveResult insertRecords(SObject record) {
+        return insertRecords(record, false);
+    }
+    public virtual Database.SaveResult insertRecords(
+        SObject record,
+        Boolean allOrNone
+    ) {
+        return isMocking
+            ? (Database.SaveResult) JSON.deserialize(
+                  getResultJson(record),
+                  Database.SaveResult.class
+              )
+            : System.Database.insert(record, allOrNone);
+    }
+    public virtual Database.SaveResult insertRecords(
+        SObject record,
+        Database.DMLOptions dmlOptions
+    ) {
+        return isMocking
+            ? (Database.SaveResult) JSON.deserialize(
+                  getResultJson(record),
+                  Database.SaveResult.class
+              )
+            : System.Database.insert(record, dmlOptions);
+    }
+    public virtual Database.SaveResult insertRecords(
+        SObject record,
+        Boolean allOrNone,
+        System.AccessLevel accessLevel
+    ) {
+        return isMocking
+            ? (Database.SaveResult) JSON.deserialize(
+                  getResultJson(record),
+                  Database.SaveResult.class
+              )
+            : System.Database.insert(record, allOrNone, accessLevel);
+    }
+    public virtual Database.SaveResult insertRecords(
+        SObject record,
+        Database.DMLOptions dmlOptions,
+        System.AccessLevel accessLevel
+    ) {
+        return isMocking
+            ? (Database.SaveResult) JSON.deserialize(
+                  getResultJson(record),
+                  Database.SaveResult.class
+              )
+            : System.Database.insert(record, dmlOptions, accessLevel);
+    }
+    // insert - list
+    public virtual List<Database.SaveResult> insertRecords(
+        List<SObject> records
+    ) {
+        return insertRecords(records, false);
+    }
+    public virtual List<Database.SaveResult> insertRecords(
+        List<SObject> records,
+        Boolean allOrNone
+    ) {
+        return isMocking
+            ? (List<Database.SaveResult>) JSON.deserialize(
+                  getResultJson(records),
+                  List<Database.SaveResult>.class
+              )
+            : System.Database.insert(records, allOrNone);
+    }
+    public virtual List<Database.SaveResult> insertRecords(
+        List<SObject> records,
+        Database.DMLOptions dmlOptions
+    ) {
+        return isMocking
+            ? (List<Database.SaveResult>) JSON.deserialize(
+                  getResultJson(records),
+                  List<Database.SaveResult>.class
+              )
+            : System.Database.insert(records, dmlOptions);
+    }
+    public virtual List<Database.SaveResult> insertRecords(
+        List<SObject> records,
+        Boolean allOrNone,
+        System.AccessLevel accessLevel
+    ) {
+        return isMocking
+            ? (List<Database.SaveResult>) JSON.deserialize(
+                  getResultJson(records),
+                  List<Database.SaveResult>.class
+              )
+            : System.Database.insert(records, allOrNone, accessLevel);
+    }
+    public virtual List<Database.SaveResult> insertRecords(
+        List<SObject> records,
+        Database.DMLOptions dmlOptions,
+        System.AccessLevel accessLevel
+    ) {
+        return isMocking
+            ? (List<Database.SaveResult>) JSON.deserialize(
+                  getResultJson(records),
+                  List<Database.SaveResult>.class
+              )
+            : System.Database.insert(records, dmlOptions, accessLevel);
+    }
+    // update - single record
+    public virtual Database.SaveResult updateRecords(SObject record) {
+        return updateRecords(record, false);
+    }
+    public virtual Database.SaveResult updateRecords(
+        SObject record,
+        Boolean allOrNone
+    ) {
+        return isMocking
+            ? (Database.SaveResult) JSON.deserialize(
+                  getResultJson(record),
+                  Database.SaveResult.class
+              )
+            : System.Database.update(record, allOrNone);
+    }
+    public virtual Database.SaveResult updateRecords(
+        SObject record,
+        Database.DMLOptions dmlOptions
+    ) {
+        return isMocking
+            ? (Database.SaveResult) JSON.deserialize(
+                  getResultJson(record),
+                  Database.SaveResult.class
+              )
+            : System.Database.update(record, dmlOptions);
+    }
+    public virtual Database.SaveResult updateRecords(
+        SObject record,
+        Boolean allOrNone,
+        System.AccessLevel accessLevel
+    ) {
+        return isMocking
+            ? (Database.SaveResult) JSON.deserialize(
+                  getResultJson(record),
+                  Database.SaveResult.class
+              )
+            : System.Database.update(record, allOrNone, accessLevel);
+    }
+    public virtual Database.SaveResult updateRecords(
+        SObject record,
+        Database.DMLOptions dmlOptions,
+        System.AccessLevel accessLevel
+    ) {
+        return isMocking
+            ? (Database.SaveResult) JSON.deserialize(
+                  getResultJson(record),
+                  Database.SaveResult.class
+              )
+            : System.Database.update(record, dmlOptions, accessLevel);
+    }
+    // update - list
+    public virtual List<Database.SaveResult> updateRecords(
+        List<SObject> records
+    ) {
+        return updateRecords(records, false);
+    }
+    public virtual List<Database.SaveResult> updateRecords(
+        List<SObject> records,
+        Boolean allOrNone
+    ) {
+        return isMocking
+            ? (List<Database.SaveResult>) JSON.deserialize(
+                  getResultJson(records),
+                  List<Database.SaveResult>.class
+              )
+            : System.Database.update(records, allOrNone);
+    }
+    public virtual List<Database.SaveResult> updateRecords(
+        List<SObject> records,
+        Database.DMLOptions dmlOptions
+    ) {
+        return isMocking
+            ? (List<Database.SaveResult>) JSON.deserialize(
+                  getResultJson(records),
+                  List<Database.SaveResult>.class
+              )
+            : System.Database.update(records, dmlOptions);
+    }
+    public virtual List<Database.SaveResult> updateRecords(
+        List<SObject> records,
+        Boolean allOrNone,
+        System.AccessLevel accessLevel
+    ) {
+        return isMocking
+            ? (List<Database.SaveResult>) JSON.deserialize(
+                  getResultJson(records),
+                  List<Database.SaveResult>.class
+              )
+            : System.Database.update(records, allOrNone, accessLevel);
+    }
+    public virtual List<Database.SaveResult> updateRecords(
+        List<SObject> records,
+        Database.DMLOptions dmlOptions,
+        System.AccessLevel accessLevel
+    ) {
+        return isMocking
+            ? (List<Database.SaveResult>) JSON.deserialize(
+                  getResultJson(records),
+                  List<Database.SaveResult>.class
+              )
+            : System.Database.update(records, dmlOptions, accessLevel);
+    }
+    // upsert - single record
+    public virtual Database.UpsertResult upsertRecords(SObject record) {
+        return upsertRecords(record, null, false);
+    }
+    public virtual Database.UpsertResult upsertRecords(
+        SObject record,
+        Boolean allOrNone
+    ) {
+        return upsertRecords(record, null, allOrNone);
+    }
+    public virtual Database.UpsertResult upsertRecords(
+        SObject record,
+        Schema.SObjectField externalIdField
+    ) {
+        return upsertRecords(record, externalIdField, false);
+    }
+    public virtual Database.UpsertResult upsertRecords(
+        SObject record,
+        Schema.SObjectField externalIdField,
+        Boolean allOrNone
+    ) {
+        return isMocking
+            ? (Database.UpsertResult) JSON.deserialize(
+                  getResultJson(record),
+                  Database.UpsertResult.class
+              )
+            : externalIdField != null
+                  ? System.Database.upsert(record, externalIdField, allOrNone)
+                  : System.Database.upsert(record, allOrNone);
+    }
+    public virtual Database.UpsertResult upsertRecords(
+        SObject record,
+        Boolean allOrNone,
+        System.AccessLevel accessLevel
+    ) {
+        return upsertRecords(record, null, allOrNone, accessLevel);
+    }
+    public virtual Database.UpsertResult upsertRecords(
+        SObject record,
+        Schema.SObjectField externalIdField,
+        Boolean allOrNone,
+        System.AccessLevel accessLevel
+    ) {
+        return isMocking
+            ? (Database.UpsertResult) JSON.deserialize(
+                  getResultJson(record),
+                  Database.UpsertResult.class
+              )
+            : externalIdField != null
+                  ? System.Database.upsert(
+                        record,
+                        externalIdField,
+                        allOrNone,
+                        accessLevel
+                    )
+                  : System.Database.upsert(record, allOrNone, accessLevel);
+    }
+    // upsert - list
+    public virtual List<Database.UpsertResult> upsertRecords(
+        List<SObject> records
+    ) {
+        return upsertRecords(records, null, false);
+    }
+    public virtual List<Database.UpsertResult> upsertRecords(
+        List<SObject> records,
+        Boolean allOrNone
+    ) {
+        return upsertRecords(records, null, allOrNone);
+    }
+    public virtual List<Database.UpsertResult> upsertRecords(
+        List<SObject> records,
+        Schema.SObjectField externalIdField
+    ) {
+        return upsertRecords(records, externalIdField, false);
+    }
+    public virtual List<Database.UpsertResult> upsertRecords(
+        List<SObject> records,
+        Schema.SObjectField externalIdField,
+        Boolean allOrNone
+    ) {
+        return isMocking
+            ? (List<Database.UpsertResult>) JSON.deserialize(
+                  getResultJson(records),
+                  List<Database.UpsertResult>.class
+              )
+            : externalIdField != null
+                  ? System.Database.upsert(records, externalIdField, allOrNone)
+                  : System.Database.upsert(records, allOrNone);
+    }
+    public virtual List<Database.UpsertResult> upsertRecords(
+        List<SObject> records,
+        Boolean allOrNone,
+        System.AccessLevel accessLevel
+    ) {
+        return upsertRecords(records, null, allOrNone, accessLevel);
+    }
+    public virtual List<Database.UpsertResult> upsertRecords(
+        List<SObject> records,
+        Schema.SObjectField externalIdField,
+        Boolean allOrNone,
+        System.AccessLevel accessLevel
+    ) {
+        return isMocking
+            ? (List<Database.UpsertResult>) JSON.deserialize(
+                  getResultJson(records),
+                  List<Database.UpsertResult>.class
+              )
+            : externalIdField != null
+                  ? System.Database.upsert(
+                        records,
+                        externalIdField,
+                        allOrNone,
+                        accessLevel
+                    )
+                  : System.Database.upsert(records, allOrNone, accessLevel);
+    }
+    // delete - single SObject
+    public virtual Database.DeleteResult deleteRecords(SObject record) {
+        return deleteRecords(record, false);
+    }
+    public virtual Database.DeleteResult deleteRecords(
+        SObject record,
+        Boolean allOrNone
+    ) {
+        return isMocking
+            ? (Database.DeleteResult) JSON.deserialize(
+                  getResultJson(record),
+                  Database.DeleteResult.class
+              )
+            : System.Database.delete(record, allOrNone);
+    }
+    public virtual Database.DeleteResult deleteRecords(
+        SObject record,
+        Boolean allOrNone,
+        System.AccessLevel accessLevel
+    ) {
+        return isMocking
+            ? (Database.DeleteResult) JSON.deserialize(
+                  getResultJson(record),
+                  Database.DeleteResult.class
+              )
+            : System.Database.delete(record, allOrNone, accessLevel);
+    }
+    // delete - single Id
+    public virtual Database.DeleteResult deleteRecords(Id recordId) {
+        return deleteRecords(recordId, false);
+    }
+    public virtual Database.DeleteResult deleteRecords(
+        Id recordId,
+        Boolean allOrNone
+    ) {
+        return isMocking
+            ? (Database.DeleteResult) JSON.deserialize(
+                  getResultJson(recordId),
+                  Database.DeleteResult.class
+              )
+            : System.Database.delete(recordId, allOrNone);
+    }
+    public virtual Database.DeleteResult deleteRecords(
+        Id recordId,
+        Boolean allOrNone,
+        System.AccessLevel accessLevel
+    ) {
+        return isMocking
+            ? (Database.DeleteResult) JSON.deserialize(
+                  getResultJson(recordId),
+                  Database.DeleteResult.class
+              )
+            : System.Database.delete(recordId, allOrNone, accessLevel);
+    }
+    // delete - list SObject
+    public virtual List<Database.DeleteResult> deleteRecords(
+        List<SObject> records
+    ) {
+        return deleteRecords(records, false);
+    }
+    public virtual List<Database.DeleteResult> deleteRecords(
+        List<SObject> records,
+        Boolean allOrNone
+    ) {
+        return isMocking
+            ? (List<Database.DeleteResult>) JSON.deserialize(
+                  getResultJson(records),
+                  List<Database.DeleteResult>.class
+              )
+            : System.Database.delete(records, allOrNone);
+    }
+    public virtual List<Database.DeleteResult> deleteRecords(
+        List<SObject> records,
+        Boolean allOrNone,
+        System.AccessLevel accessLevel
+    ) {
+        return isMocking
+            ? (List<Database.DeleteResult>) JSON.deserialize(
+                  getResultJson(records),
+                  List<Database.DeleteResult>.class
+              )
+            : System.Database.delete(records, allOrNone, accessLevel);
+    }
+    // delete - list Id
+    public virtual List<Database.DeleteResult> deleteRecords(
+        List<Id> recordIds
+    ) {
+        return deleteRecords(recordIds, false);
+    }
+    public virtual List<Database.DeleteResult> deleteRecords(
+        List<Id> recordIds,
+        Boolean allOrNone
+    ) {
+        return isMocking
+            ? (List<Database.DeleteResult>) JSON.deserialize(
+                  getResultJson(recordIds),
+                  List<Database.DeleteResult>.class
+              )
+            : System.Database.delete(recordIds, allOrNone);
+    }
+    public virtual List<Database.DeleteResult> deleteRecords(
+        List<Id> recordIds,
+        Boolean allOrNone,
+        System.AccessLevel accessLevel
+    ) {
+        return isMocking
+            ? (List<Database.DeleteResult>) JSON.deserialize(
+                  getResultJson(recordIds),
+                  List<Database.DeleteResult>.class
+              )
+            : System.Database.delete(recordIds, allOrNone, accessLevel);
+    }
+    // undelete - single SObject
+    public virtual Database.UndeleteResult undeleteRecords(SObject record) {
+        return undeleteRecords(record, false);
+    }
+    public virtual Database.UndeleteResult undeleteRecords(
+        SObject record,
+        Boolean allOrNone
+    ) {
+        return isMocking
+            ? (Database.UndeleteResult) JSON.deserialize(
+                  getResultJson(record),
+                  Database.UndeleteResult.class
+              )
+            : System.Database.undelete(record, allOrNone);
+    }
+    public virtual Database.UndeleteResult undeleteRecords(
+        SObject record,
+        Boolean allOrNone,
+        System.AccessLevel accessLevel
+    ) {
+        return isMocking
+            ? (Database.UndeleteResult) JSON.deserialize(
+                  getResultJson(record),
+                  Database.UndeleteResult.class
+              )
+            : System.Database.undelete(record, allOrNone, accessLevel);
+    }
+    // undelete - single Id
+    public virtual Database.UndeleteResult undeleteRecords(Id recordId) {
+        return undeleteRecords(recordId, false);
+    }
+    public virtual Database.UndeleteResult undeleteRecords(
+        Id recordId,
+        Boolean allOrNone
+    ) {
+        return isMocking
+            ? (Database.UndeleteResult) JSON.deserialize(
+                  getResultJson(recordId),
+                  Database.UndeleteResult.class
+              )
+            : System.Database.undelete(recordId, allOrNone);
+    }
+    public virtual Database.UndeleteResult undeleteRecords(
+        Id recordId,
+        Boolean allOrNone,
+        System.AccessLevel accessLevel
+    ) {
+        return isMocking
+            ? (Database.UndeleteResult) JSON.deserialize(
+                  getResultJson(recordId),
+                  Database.UndeleteResult.class
+              )
+            : System.Database.undelete(recordId, allOrNone, accessLevel);
+    }
+    // undelete - list SObject
+    public virtual List<Database.UndeleteResult> undeleteRecords(
+        List<SObject> records
+    ) {
+        return undeleteRecords(records, false);
+    }
+    public virtual List<Database.UndeleteResult> undeleteRecords(
+        List<SObject> records,
+        Boolean allOrNone
+    ) {
+        return isMocking
+            ? (List<Database.UndeleteResult>) JSON.deserialize(
+                  getResultJson(records),
+                  List<Database.UndeleteResult>.class
+              )
+            : System.Database.undelete(records, allOrNone);
+    }
+    public virtual List<Database.UndeleteResult> undeleteRecords(
+        List<SObject> records,
+        Boolean allOrNone,
+        System.AccessLevel accessLevel
+    ) {
+        return isMocking
+            ? (List<Database.UndeleteResult>) JSON.deserialize(
+                  getResultJson(records),
+                  List<Database.UndeleteResult>.class
+              )
+            : System.Database.undelete(records, allOrNone, accessLevel);
+    }
+    // undelete - list Id
+    public virtual List<Database.UndeleteResult> undeleteRecords(
+        List<Id> recordIds
+    ) {
+        return undeleteRecords(recordIds, false);
+    }
+    public virtual List<Database.UndeleteResult> undeleteRecords(
+        List<Id> recordIds,
+        Boolean allOrNone
+    ) {
+        return isMocking
+            ? (List<Database.UndeleteResult>) JSON.deserialize(
+                  getResultJson(recordIds),
+                  List<Database.UndeleteResult>.class
+              )
+            : System.Database.undelete(recordIds, allOrNone);
+    }
+    public virtual List<Database.UndeleteResult> undeleteRecords(
+        List<Id> recordIds,
+        Boolean allOrNone,
+        System.AccessLevel accessLevel
+    ) {
+        return isMocking
+            ? (List<Database.UndeleteResult>) JSON.deserialize(
+                  getResultJson(recordIds),
+                  List<Database.UndeleteResult>.class
+              )
+            : System.Database.undelete(recordIds, allOrNone, accessLevel);
+    }
 
-            return getResultJson(ids);
-        }
-
-        private String getResultJson(SObject sobj) {
+    private String getResultJson(List<SObject> sobjects) {
+        List<Id> ids = new List<Id>();
+        for (SObject sobj : sobjects) {
             // in insert scenarios sobjects won't have an id, so create one
             if (sobj.Id == null) {
                 Proxy.mock.setFauxId(sobj);
             }
-
-            return getResultJson(sobj.Id);
+            ids.add(sobj.Id);
         }
 
-        private String getResultJson(List<Id> sobjectIds) {
-            List<String> recordJsons = new List<String>();
-            for (Id sobjId : sobjectIds) {
-                recordJsons.add(getResultJson(sobjId));
-            }
-            return '[' + String.join(recordJsons, ',') + ']';
+        return getResultJson(ids);
+    }
+
+    private String getResultJson(SObject sobj) {
+        // in insert scenarios sobjects won't have an id, so create one
+        if (sobj.Id == null) {
+            Proxy.mock.setFauxId(sobj);
         }
-        private String getResultJson(Id sobjectId) {
-            return '{"id":"' + sobjectId + '", "success": true}';
+
+        return getResultJson(sobj.Id);
+    }
+
+    private String getResultJson(List<Id> sobjectIds) {
+        List<String> recordJsons = new List<String>();
+        for (Id sobjId : sobjectIds) {
+            recordJsons.add(getResultJson(sobjId));
         }
+        return '[' + String.join(recordJsons, ',') + ']';
+    }
+    private String getResultJson(Id sobjectId) {
+        return '{"id":"' + sobjectId + '", "success": true}';
     }
 
     private class MockProxyException extends Exception {
