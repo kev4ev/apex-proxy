@@ -167,12 +167,6 @@ public virtual inherited sharing class Proxy {
         return customMock;
     }
 
-    public virtual class ContextDependentMockReader {
-        public virtual Boolean useForContext(Object context) {
-            return true;
-        }
-    }
-
     public virtual class Mock extends Proxy {
         private Map<Schema.SObjectType, Integer> recordIdCounter = new Map<Schema.SObjectType, Integer>();
         private Map<String, MockReader> readMocks = new Map<String, MockReader>();
