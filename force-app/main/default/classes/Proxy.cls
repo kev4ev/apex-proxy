@@ -1,5 +1,5 @@
 /**
- * @version 2.0.0
+ * @version 1.0.0
  * @description Provides APIs for trapping database reads and writes and variable assignments.
  * TOP-LEVEL APIs:
  *  1. reflect: for trapping and manipulating variable assignments
