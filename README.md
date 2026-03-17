@@ -6,7 +6,7 @@
 
 Apex unit tests are a fact of life for Salesforce developers. But have you been writing them wrong this whole time? If your unit tests are still relying on the database to validate outcomes then what you're really writing are _integration tests_, and they come with some big downsides. Namely: **long runtimes, system fragility, and the ability to actually validate what you intend to test.**
 
-We have all experienced the pain of updating logic in a large and/or complex brownfield org: you make a seemingly simple change, run your unit tests and then - BAM 💥 - multiple failures. More often than not the reason has little to do with what you actually changed, but rather the multitude of side effects introduced from the automation stack that fires with database operations occurring during test data setup. There has to be a better way, and now there is.
+We have all experienced the pain of updating logic in a large and/or complex brownfield org: you make a seemingly simple change, run your unit tests and then - BAM 💥 - multiple failures. More often than not the reason has little to do with what you actually changed, but rather the multitude of side effects introduced from the automation stack that fires with database operations. There has to be a better way, and now there is.
 
 While you may have worked with or have heard of other mocking frameworks I think you'll find `Proxy` to be the **simplest, most declarative, and least disruptive library available for getting the database out of your unit tests**.
 
@@ -17,7 +17,7 @@ Goals:
 3. Everything is replaceable. Support complex use cases with virtual classes and methods.
 4. AI ready. Highly documented and functional API that makes it easier for LLMs to understand.
 
-## Progressive Adoption
+### Progressive Adoption
 
 As mentioned above, Proxy is designed for progressive adoption — you don't need to refactor your entire codebase to start benefiting from it.
 
@@ -38,6 +38,99 @@ npx @machso/apexproxy init
 If you don't have npm installed you can simply copy the source code from here into your local project.
 
 ## Usage
+
+### A Basic Example
+
+Let's say you have the `AccountServices` class below. The business logic is simple - whenever an Account's owner changes `reparentChildren()` gets called with the new ownerId. It then reparents the Account's Cases and Contacts as well as setting the Account's custom SLA\_\_c field based on the owner's Role.
+
+```java
+public class AccountService{
+    public static method reparentChildren(Id accountId){
+        Account acct = [
+            SELECT
+                Id, SLA__c, OwnerId, Owner.UserRole.DeveloperName,
+                (SELECT Id, OwnerId FROM Contacts),
+                (SELECT Id, OwnerId FROM Cases)
+            WHERE Id = :accountId LIMIT 1
+        ];
+
+        for (Contact c : acct.contacts){
+            c.OwnerId = acct.OwnerId;
+        }
+        update acct.contacts;
+
+        for(Case c : acct.cases){
+            c.OwnerId = acct.OwnerId;
+        }
+        update acct.cases;
+
+        acc.SLA__c = calculateSla(acct.Owner.UserRole.DeveloperName);
+    }
+
+    private static String calculateSla(String ownerRole){
+        // ...logic
+    }
+}
+```
+
+To setup a typical test for this code you would have to insert the following records into the db:
+
+1. At least 1 User including the **13** fields required on the object; more if you need to test for SLA\_\_c variants
+2. 1 Account
+3. 1...n Contacts
+4. 1...n Cases
+
+So to test >20 lines of code you now inherit the burden of the entire automation stack for 4 different objects including validation rules, flow triggers, Apex triggers, and a dozen other places things could go wrong. Not to mention the spidering processes that might get spawned related to the update of these records.
+
+**But why?** You just want to test that _this_ code works, but instead you're saddled with the baggage of the entire automation chain. When you implement Proxy, you test _what you intend to test_ and leave the side effects where they belong: in your intentional blackbox tests (which are still important).
+
+Here's how the test looks using Proxy, assuming you want to mock both the `read` and `write` operations therein:
+
+````java
+// update the functional code
+public class AccountService {
+    public static method reparentChildren(Id accountId){
+        // mock the READ by wrapping your SOQL statement - this has ZERO runtime effects outside unit tests
+        Account acct = Proxy.query(
+        [
+            SELECT
+                Id, SLA__c, OwnerId, Owner.UserRole.DeveloperName,
+                (SELECT Id, OwnerId FROM Contacts),
+                (SELECT Id, OwnerId FROM Cases)
+            WHERE Id = :accountId LIMIT 1
+        ], AccountService.class);
+
+        // mock the WRITE operations - again zero effect outside unit tests
+        for (Contact c : acct.contacts){
+            c.OwnerId = acct.OwnerId;
+        }
+        Proxy.updateRecords(acct.contacts);
+
+        for(Case c : acct.cases){
+            c.OwnerId = acct.OwnerId;
+        }
+        Proxy.updateRecords(acct.cases);
+
+        acc.SLA__c = calculateSla(acct.Owner.UserRole.DeveloperName);
+    }
+
+    private static String calculateSla(String ownerRole){
+        // ...logic
+    }
+}
+
+// create the test class
+@isTest
+public class AccountServiceTest{
+
+    private static void validateChildAssignments(){
+
+    }
+
+}
+```
+
+
 
 ### Functional Code
 
@@ -62,7 +155,7 @@ public class AccountService {
         );
     }
 }
-```
+````
 
 In production the proxy is a transparent pass-through — `results` is returned unchanged and the second and (optional) third arguments are ignored. In tests, any `MockReader` registered for `AccountService` takes over (see [unit tests](#unit-tests) below).
 
