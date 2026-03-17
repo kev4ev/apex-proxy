@@ -82,6 +82,30 @@ public inherited sharing class ProxyTest extends Proxy.MockReader {
     }
 
     @isTest
+    /**
+     * @description Validates the reflect(value, key, System.Type) overload:
+     *   (1) the composed key (key + '_' + caller.getName()) is used in trapAudit
+     *   (2) a value pre-registered via trapMock(key, System.Type, value) is returned
+     */
+    private static void reflect_validateTrap_withCallerType() {
+        Proxy.mock();
+        String key = 'ctx';
+        Integer original = 99;
+        Integer mocked = 7;
+        String composedKey = key + '_' + ProxyTest.class.getName();
+
+        // without a mock value registered, the original should pass through
+        Integer passthrough = (Integer) Proxy.reflect(original, key, ProxyTest.class);
+        Assert.areEqual(original, passthrough);
+        Assert.areEqual(original, (Integer) Proxy.mock.trapAudit.get(composedKey));
+
+        // register a mock value keyed by the same type and re-reflect
+        Proxy.mock.trapMock(key, ProxyTest.class, mocked);
+        Integer intercepted = (Integer) Proxy.reflect(original, key, ProxyTest.class);
+        Assert.areEqual(mocked, intercepted);
+    }
+
+    @isTest
     private static void db_coverWrite() {
         Proxy.mock();
         coverProxyDbOperations();

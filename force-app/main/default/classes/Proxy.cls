@@ -67,6 +67,10 @@ public virtual inherited sharing class Proxy {
         return singleton.trap(value, key);
     }
 
+    public static Object reflect(Object value, String key, System.Type caller) {
+        return singleton.trap(value, key + '_' + caller.getName());
+    }
+
     /**
      * @description default implementation simply returns the passed
      * value. Overridable for mocking and/or extension.
@@ -268,7 +272,17 @@ public virtual inherited sharing class Proxy {
 
         /** @description use to introspect a value passed to the reflect api with this key */
         public void trapMock(String key) {
-            trapMock(key, null);
+            trapMock(key, (Object) null);
+        }
+
+        /** @description use to introspect a value passed to the reflect api with this key and System.Type */
+        public void trapMock(String key, System.Type caller) {
+            trapMock(key, caller, null);
+        }
+
+        /** @description use to **replace the return value** of a value passed to the reflect api with this key and System.Type */
+        public void trapMock(String key, System.Type caller, Object value) {
+            trapMock(key + '_' + caller.getName(), value);
         }
 
         /** @description use to **replace the return value** of a value passed to the reflect api with this key */

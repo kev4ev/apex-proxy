@@ -1,40 +1,41 @@
 # Apex Proxy
 
-<!-- TODO note on AI - wait, but why do I need a testing framework with AI? Brownfield, agents aren't
-aware of existing context, need to avoid DB **even more** -->
+## Prologue
 
-Apex unit tests - they're a fact of life for Salesforce developers. But have you been writing them wrong all this time?
+> Feel free to skip right to [installation](#installation) if you're already team #noDbNoProblems
 
-If your unit tests are writing and reading from the database, chances are what you're really writing are _integration tests_. The proxy pattern allows you to optimize your unit tests for performance, stability, and isolation.
+Apex unit tests are a fact of life for Salesforce developers. But have you been writing them wrong this whole time? If your unit tests are still relying on the database to validate outcomes then what you're really writing are _integration tests_, and they come with some big downsides. Namely: **long runtimes, system fragility, and the ability to actually validate what you intend to test.**
+
+We have all experienced the pain of updating logic in a large and/or complex brownfield org: you make a seemingly simple change, run your unit tests and then - BAM 💥 - multiple failures. More often than not the reason has little to do with what you actually changed, but rather the multitude of side effects introduced from the automation stack that fires with database operations occurring during test data setup. There has to be a better way, and now there is.
+
+While you may have worked with or have heard of other mocking frameworks I think you'll find `Proxy` to be the **simplest, most declarative, and least disruptive library available for getting the database out of your unit tests**.
 
 Goals:
 
-<!-- TODO finish -->
-
-1. solve 95% of state-related unit test challenges with a declarative, functional API; no stub api required
-2. built for progressive adoption; no massive rewrites or framework lock-in. Use when and where you need it and adopt over time.
+1. solve 95% of state-related unit test challenges with a declarative, functional-style API; no stub api required
+2. built for [progressive adoption](#progressive-adoption); no massive rewrites or framework lock-in. Use when and where you need it and adopt over time.
 3. Everything is replaceable. Support complex use cases with virtual classes and methods.
 4. AI ready. Highly documented and functional API that makes it easier for LLMs to understand.
 
 ## Progressive Adoption
 
-Proxy is designed for progressive adoption — you don't need to refactor your entire codebase to start benefiting from it.
+As mentioned above, Proxy is designed for progressive adoption — you don't need to refactor your entire codebase to start benefiting from it.
 
-**Drop it into existing classes with minimal changes.** The inline read style requires no new interfaces or class restructuring. Add a `Proxy.db.read()` call around your existing SOQL and pass the calling class type — that's it. Your production behavior is unchanged (the proxy is a transparent pass-through when not mocking), and your tests gain the ability to stub query results without touching the database.
+**Drop it into existing classes with minimal changes.** The _inline_ read style requires no new interfaces or class restructuring. Add a `Proxy.db.read()` call around your existing `SOQL` and pass the calling class type — that's it. Your production behavior is unchanged (the proxy is a transparent pass-through when not mocking), and your tests gain the ability to stub query results without touching the database.
 
 **Start small.** You can adopt Proxy one class, one method, or even one query at a time. Tests for un-proxied code continue to work exactly as before.
 
-**Works with established patterns too.** If your org already uses a Selector layer or a framework like [fflib](https://github.com/apex-enterprise-patterns/fflib-apex-common), use the implementation style — implement `Proxy.DbReader` in your existing selector classes. Proxy slots in without displacing your architecture.
+**Works with established patterns.** If your org already uses a Selector layer or a framework like `fflib` you can use the _implementation_ style — implement `Proxy.DbReader` in your existing selector classes. Proxy slots in without displacing your architecture.
 
-## Installation
+# Installation
 
-From the root of your Salesforce DX project (the directory containing `sfdx-project.json`), run:
+There are two ways to get Proxy in your codebase. If you have `node` and its package manager, `npm`, installed, just run the following from the root of your Salesforce DX project (the directory containing `sfdx-project.json`) and the `Proxy` and `ProxyTest` classes will be copied into your project's default package directory.
 
 ```bash
 npx @machso/apexproxy init
 ```
 
-This will copy `Proxy.cls` and `ProxyTest.cls` (and their metadata files) into the `main/default/classes` subdirectory of your project's default package directory. Before deploying, ensure the class names do not conflict with existing classes in your target org.
+If you don't have npm installed you can simply copy the source code from here into your local project.
 
 ## Usage
 
