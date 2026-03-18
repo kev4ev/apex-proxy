@@ -22,10 +22,6 @@ public inherited sharing class ProxyTest extends Proxy.MockReader {
         ];
     }
 
-    /********************************************
-     * VALIDATE REFLECT API
-     *********************************************/
-
     @isTest
     private static void validateDefaultProxyIsSingleton() {
         // override DEF_PROXY and assert singleton is properly assigned
@@ -37,26 +33,57 @@ public inherited sharing class ProxyTest extends Proxy.MockReader {
         Assert.isNotNull(Proxy.singleton);
     }
 
-    /********************************************
-     * VALIDATE DB API
-     *********************************************/
+    /****************************************************************************************
+     * VALIDATE MOCK API
+     *****************************************************************************************/
+
+    /****************************************************************************************
+     * VALIDATE REFLECT API
+     *****************************************************************************************/
 
     @isTest
-    private static void coverProxyDbOperations() {
-        List<Account> accts = new List<Account>();
-        Assert.areEqual(0, Proxy.db.insertRecords(accts).size());
-        Assert.areEqual(0, Proxy.db.updateRecords(accts).size());
-        Assert.areEqual(0, Proxy.db.upsertRecords(accts).size());
-        Assert.areEqual(0, Proxy.db.deleteRecords(accts).size());
-        Assert.areEqual(0, Proxy.db.undeleteRecords(accts).size());
+    /**
+     * @description Validates Mock.trap(String):
+     *   (1) returns the key itself
+     *   (2) reflect passthrough — original value is returned because no replacement was registered
+     *   (3) trapAudit records the reflected value under that key
+     */
+    private static void mock_trap_stringKey_registersWatchAndPassesThrough() {
+        Proxy.mock();
+        String key = 'watchedKey';
+        Integer value = 42;
+
+        String returnedKey = Proxy.mock.trap(key);
+        Assert.areEqual(key, returnedKey);
+
+        Integer result = (Integer) Proxy.reflect(value, key);
+        Assert.areEqual(value, result);
+        Assert.areEqual(value, (Integer) Proxy.mock.trapAudit.get(key));
+    }
+
+    @isTest
+    /**
+     * @description Validates Mock.trap(String, System.Type):
+     *   (1) returns the composed key (key + '_' + caller.getName())
+     *   (2) reflect passthrough — original value is returned because no replacement was registered
+     *   (3) trapAudit records the reflected value under the composed key
+     */
+    private static void mock_trap_stringKeyAndType_registersCallerScopedWatchAndPassesThrough() {
+        Proxy.mock();
+        String key = 'scopedKey';
+        Integer value = 55;
+        String composedKey = key + '_' + ProxyTest.class.getName();
+
+        String returnedKey = Proxy.mock.trap(key, ProxyTest.class);
+        Assert.areEqual(composedKey, returnedKey);
+
+        Integer result = (Integer) Proxy.reflect(value, key, ProxyTest.class);
+        Assert.areEqual(value, result);
+        Assert.areEqual(value, (Integer) Proxy.mock.trapAudit.get(composedKey));
     }
 
     /********************************************
-     * VALIDATE MOCK API
-     *********************************************/
-
-    /********************************************
-     * VALIDATE MOCK API: declarative API approach
+     * VALIDATE MOCK READ API: declarative API approach
      *********************************************/
     @isTest
     private static void validateMockSingletons() {
@@ -230,7 +257,7 @@ public inherited sharing class ProxyTest extends Proxy.MockReader {
     }
 
     /********************************************
-     * VALIDATE MOCK API: class override approach
+     * VALIDATE MOCK READ API: class override approach
      *********************************************/
 
     private class MockTarget implements Proxy.DbReader {
@@ -367,9 +394,19 @@ public inherited sharing class ProxyTest extends Proxy.MockReader {
         Assert.areEqual(orgDefault, Proxy.DEF_PROXY);
     }
 
-    /********************************************
-     * VALIDATE DB WRITE OVERLOADS
-     *********************************************/
+    /****************************************************************************************
+     * _COVER_ DB WRITE OVERLOADS (No need to validate database outcomes)
+     *****************************************************************************************/
+
+    @isTest
+    private static void coverProxyDbOperations() {
+        List<Account> accts = new List<Account>();
+        Assert.areEqual(0, Proxy.db.insertRecords(accts).size());
+        Assert.areEqual(0, Proxy.db.updateRecords(accts).size());
+        Assert.areEqual(0, Proxy.db.upsertRecords(accts).size());
+        Assert.areEqual(0, Proxy.db.deleteRecords(accts).size());
+        Assert.areEqual(0, Proxy.db.undeleteRecords(accts).size());
+    }
 
     /** Covers allOrNone, DMLOptions, and AccessLevel list overloads without mock (empty lists = no-op DML) */
     @isTest
@@ -476,12 +513,6 @@ public inherited sharing class ProxyTest extends Proxy.MockReader {
                 )
                 .size()
         );
-    }
-
-    @isTest
-    private static void db_coverWrite_listOverloads_mocked() {
-        Proxy.mock();
-        coverProxyDbOperations_listOverloads();
     }
 
     /** Verifies mocked list overloads return a result per record */

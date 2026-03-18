@@ -41,34 +41,41 @@ If you don't have npm installed you can simply copy the source code from here in
 
 ### A Basic Example
 
-Let's say you have the `AccountServices` class below. The business logic is simple - whenever an Account's owner changes `reparentChildren()` gets called with the new ownerId. It then reparents the Account's Cases and Contacts as well as setting the Account's custom SLA\_\_c field based on the owner's Role.
+Let's say you have the `AccountServices` class below. The business logic is simple - whenever an Account's owner changes `handleReassignment()` gets called with the accountId (set aside bulkification for now - this is an intentionally simplified example). It then reparents the Account's Cases and Contacts as well as setting the Account's IsPriorityRecord field based on the Account attributes and owner's Role.
 
 ```java
-public class AccountService{
-    public static method reparentChildren(Id accountId){
+public class AccountService {
+    public static method handleReassignment(Id accountId) {
         Account acct = [
             SELECT
-                Id, SLA__c, OwnerId, Owner.UserRole.DeveloperName,
+                Id,
+                IsPriorityRecord,
+                OwnerId,
+                Owner.UserRole.DeveloperName,
+                NumberOfEmployees,
                 (SELECT Id, OwnerId FROM Contacts),
                 (SELECT Id, OwnerId FROM Cases)
-            WHERE Id = :accountId LIMIT 1
+            FROM Account
+            WHERE Id = :accountId
+            LIMIT 1
         ];
 
-        for (Contact c : acct.contacts){
+        for (Contact c : acct.contacts) {
             c.OwnerId = acct.OwnerId;
         }
         update acct.contacts;
 
-        for(Case c : acct.cases){
+        for (Case c : acct.cases) {
             c.OwnerId = acct.OwnerId;
         }
         update acct.cases;
 
-        acc.SLA__c = calculateSla(acct.Owner.UserRole.DeveloperName);
+        acc.IsPriorityRecord = isPriorityAccount(acct);
     }
 
-    private static String calculateSla(String ownerRole){
-        // ...logic
+    private static Boolean isPriorityAccount(Account acct) {
+        return acct.NumberOfEmployees > 1000 ||
+            acct.Owner.UserRole.DeveloperName == 'VP_Sales';
     }
 }
 ```
@@ -82,43 +89,49 @@ To setup a typical test for this code you would have to insert the following rec
 
 So to test >20 lines of code you now inherit the burden of the entire automation stack for 4 different objects including validation rules, flow triggers, Apex triggers, and a dozen other places things could go wrong. Not to mention the spidering processes that might get spawned related to the update of these records.
 
-**But why?** You just want to test that _this_ code works, but instead you're saddled with the baggage of the entire automation chain. When you implement Proxy, you test _what you intend to test_ and leave the side effects where they belong: in your intentional blackbox tests (which are still important).
+**But why?** You just want to validate that _this_ code works. Instead you're saddled with the baggage of the entire automation chain. When you implement Proxy, you test _what you intend to test_ and leave the side effects where they belong: in your intentional blackbox tests (which are still important).
 
 Here's how the test looks using Proxy, assuming you want to mock both the `read` and `write` operations therein:
 
-````java
+```java
 // update the functional code
 public class AccountService {
-    public static method reparentChildren(Id accountId){
+    public static method handleReassignment(Id accountId){
         // mock the READ by wrapping your SOQL statement - this has ZERO runtime effects outside unit tests
         Account acct = Proxy.query(
         [
             SELECT
-                Id, SLA__c, OwnerId, Owner.UserRole.DeveloperName,
+                Id, IsPriorityRecord, OwnerId, Owner.UserRole.DeveloperName,
                 (SELECT Id, OwnerId FROM Contacts),
                 (SELECT Id, OwnerId FROM Cases)
             WHERE Id = :accountId LIMIT 1
         ], AccountService.class);
 
-        // mock the WRITE operations - again zero effect outside unit tests
         for (Contact c : acct.contacts){
             c.OwnerId = acct.OwnerId;
         }
+        // mock the WRITE operations - again zero effect outside unit tests
         Proxy.updateRecords(acct.contacts);
 
         for(Case c : acct.cases){
             c.OwnerId = acct.OwnerId;
         }
+        // ditto
         Proxy.updateRecords(acct.cases);
 
-        acc.SLA__c = calculateSla(acct.Owner.UserRole.DeveloperName);
+        // read on...
+        acc.IsPriorityRecord = isPriorityAccount(acct);
     }
 
-    private static String calculateSla(String ownerRole){
+    private static String isPriorityAccount(Account acct){
         // ...logic
     }
 }
+```
 
+Thus far we've updated the functional code to make it mockable. Now let's provide the data we want this test to run with:
+
+```java
 // create the test class
 @isTest
 public class AccountServiceTest{
@@ -129,8 +142,6 @@ public class AccountServiceTest{
 
 }
 ```
-
-
 
 ### Functional Code
 
@@ -155,7 +166,7 @@ public class AccountService {
         );
     }
 }
-````
+```
 
 In production the proxy is a transparent pass-through — `results` is returned unchanged and the second and (optional) third arguments are ignored. In tests, any `MockReader` registered for `AccountService` takes over (see [unit tests](#unit-tests) below).
 

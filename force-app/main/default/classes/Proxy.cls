@@ -271,23 +271,27 @@ public virtual inherited sharing class Proxy {
         }
 
         /** @description use to introspect a value passed to the reflect api with this key */
-        public void trapMock(String key) {
-            trapMock(key, (Object) null);
+        public String trap(String key) {
+            return trapMock(key, (Object) null);
         }
 
         /** @description use to introspect a value passed to the reflect api with this key and System.Type */
-        public void trapMock(String key, System.Type caller) {
-            trapMock(key, caller, null);
+        public String trap(String key, System.Type caller) {
+            return trapMock(key, caller, null);
         }
 
         /** @description use to **replace the return value** of a value passed to the reflect api with this key and System.Type */
-        public void trapMock(String key, System.Type caller, Object value) {
-            trapMock(key + '_' + caller.getName(), value);
+        public String trapMock(String key, System.Type caller, Object value) {
+            String trapKey = key + '_' + caller.getName();
+
+            return trapMock(trapKey, value);
         }
 
         /** @description use to **replace the return value** of a value passed to the reflect api with this key */
-        public void trapMock(String key, Object value) {
+        public String trapMock(String key, Object value) {
             trapMocks.put(key, value);
+
+            return key;
         }
 
         /** @description Available for use by overriding classes */

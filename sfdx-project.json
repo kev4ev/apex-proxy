@@ -5,6 +5,9 @@
       "default": true,
       "package": "Proxy",
       "versionNumber": "2.0.0.NEXT"
+    },
+    {
+      "path": "examples"
     }
   ],
   "name": "apex-proxy",
