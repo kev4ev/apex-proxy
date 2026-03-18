@@ -37,6 +37,45 @@ public inherited sharing class ProxyTest extends Proxy.MockReader {
      * VALIDATE MOCK API
      *****************************************************************************************/
 
+    @isTest
+    /**
+     * @description Validates Mock.relateParent(child, parent, relationField):
+     *   (1) the foreign key field (e.g. AccountId) is populated on the returned child
+     *   (2) the parent relationship object (e.g. Account) is traversable on the returned child
+     */
+    private static void mock_relateParent_childParentField_setsRelationshipOnChild() {
+        Proxy.mock();
+        Account parent = new Account(Name = 'Parent Acct');
+        Contact child = new Contact(FirstName = 'Child');
+
+        Contact result = (Contact) Proxy.mock.relateParent(
+            child,
+            parent,
+            Schema.Contact.AccountId
+        );
+
+        Assert.isNotNull(result.AccountId);
+        Assert.areEqual('Parent Acct', result.Account.Name);
+    }
+
+    @isTest
+    /**
+     * @description Validates Mock.relateParent(parent, child):
+     *   (1) the child sub-list relationship is populated on the returned parent
+     *   (2) the child record's fields are intact
+     */
+    private static void mock_relateParent_parentChild_setsChildRelationshipOnParent() {
+        Proxy.mock();
+        Account parent = new Account(Name = 'Root');
+        Contact child = new Contact(FirstName = 'Child', LastName = 'Test');
+
+        Account result = (Account) Proxy.mock.relateParent(parent, child);
+
+        Assert.areEqual(1, result.Contacts.size());
+        Assert.areEqual('Child', result.Contacts[0].FirstName);
+        Assert.areEqual('Test', result.Contacts[0].LastName);
+    }
+
     /****************************************************************************************
      * VALIDATE REFLECT API
      *****************************************************************************************/
@@ -254,6 +293,140 @@ public inherited sharing class ProxyTest extends Proxy.MockReader {
             .get(0)
             .get(0));
         Assert.areEqual(theOG, a3.Name);
+    }
+
+    /********************************************
+     * VALIDATE MOCK READ OPTIONS
+     *********************************************/
+
+    @isTest
+    /**
+     * @description Validates MockReadOptions.clearStateOnRead(true):
+     *   (1) first read returns the cloned records (cloneRead=true ensures result is not the same
+     *       reference that gets cleared)
+     *   (2) second read returns an empty list because readRecords was cleared after the first read
+     */
+    private static void mockReadOptions_clearStateOnRead_clearsRecordsAfterRead() {
+        Proxy.MockReader reader = Proxy.mock().mockReader(ProxyTest.class);
+        reader.addReadRecord(new Account(Name = 'Clear Me'))
+            .setOptions()
+            .cloneRead(true)
+            .clearStateOnRead(true)
+            .endSetOptions();
+
+        // first read — cloned records are returned; internal state is then cleared
+        List<SObject> read1 = reader.read(null);
+        Assert.areEqual(1, read1.size());
+        Assert.areEqual('Clear Me', ((Account) read1[0]).Name);
+
+        // second read — readRecords was cleared, so the result is empty
+        List<SObject> read2 = reader.read(null);
+        Assert.areEqual(0, read2.size());
+    }
+
+    @isTest
+    /**
+     * @description Validates MockReadOptions.recaclFormulas(true):
+     *   System.Formula.recalculateFormulas() is invoked without error and the records
+     *   are returned intact.
+     */
+    private static void mockReadOptions_recaclFormulas_returnsRecordsAfterRecalc() {
+        Proxy.MockReader reader = Proxy.mock().mockReader(ProxyTest.class);
+        reader.addReadRecord(new Account(Name = 'Formula Acct'))
+            .setOptions()
+            .recaclFormulas(true)
+            .endSetOptions();
+
+        List<SObject> result = reader.read(null);
+        Assert.areEqual(1, result.size());
+        Assert.areEqual('Formula Acct', ((Account) result[0]).Name);
+    }
+
+    @isTest
+    /**
+     * @description Validates MockReadOptions.testLimits(true):
+     *   A SOQL query is issued during each read(), incrementing the query counter.
+     *   disableLimitsOnce() suppresses the extra query for exactly one read.
+     */
+    private static void mockReadOptions_testLimits_issuesQueryPerRead() {
+        Proxy.MockReader reader = Proxy.mock().mockReader(ProxyTest.class);
+        reader.addReadRecord(new Account(Name = 'Limits Acct'))
+            .setOptions()
+            .testLimits(true)
+            .endSetOptions();
+
+        // testLimits=true — query counter should increment
+        Integer before = Limits.getQueries();
+        reader.read(null);
+        Assert.areEqual(before + 1, Limits.getQueries());
+
+        // disableLimitsOnce() should suppress the extra query for the next read only
+        Integer beforeSkip = Limits.getQueries();
+        reader.disableLimitsOnce();
+        reader.read(null);
+        Assert.areEqual(beforeSkip, Limits.getQueries());
+
+        // subsequent read resumes normal testLimits behavior
+        Integer beforeResume = Limits.getQueries();
+        reader.read(null);
+        Assert.areEqual(beforeResume + 1, Limits.getQueries());
+    }
+
+    /********************************************
+     * VALIDATE MOCK READER LINK API
+     *********************************************/
+
+    @isTest
+    /**
+     * @description Validates MockReader.link(MockReader):
+     *   (1) first read returns the originating reader's records
+     *   (2) second read delegates to the linked reader's records (default linkAfterReads = 1)
+     */
+    private static void mockReader_link_defaultSwitchesOnSecondRead() {
+        Proxy.MockReader firstReader = new Proxy.MockReader();
+        firstReader.addReadRecord(new Account(Name = 'First'));
+
+        Proxy.MockReader linkedReader = new Proxy.MockReader();
+        linkedReader.addReadRecord(new Account(Name = 'Linked'));
+
+        firstReader.link(linkedReader);
+
+        // first read — originating reader's records
+        List<SObject> read1 = firstReader.read(null);
+        Assert.areEqual(1, read1.size());
+        Assert.areEqual('First', ((Account) read1[0]).Name);
+
+        // second read — linked reader takes over
+        List<SObject> read2 = firstReader.read(null);
+        Assert.areEqual(1, read2.size());
+        Assert.areEqual('Linked', ((Account) read2[0]).Name);
+    }
+
+    @isTest
+    /**
+     * @description Validates MockReader.link(MockReader, Integer):
+     *   (1) the first N reads return the originating reader's records
+     *   (2) read N+1 delegates to the linked reader's records
+     */
+    private static void mockReader_link_customCountSwitchesAfterNReads() {
+        Proxy.MockReader firstReader = new Proxy.MockReader();
+        firstReader.addReadRecord(new Account(Name = 'First'));
+
+        Proxy.MockReader linkedReader = new Proxy.MockReader();
+        linkedReader.addReadRecord(new Account(Name = 'Linked'));
+
+        // link after 2 reads — delegate on the 3rd read
+        firstReader.link(linkedReader, 2);
+
+        // reads 1 and 2 — originating reader
+        for (Integer i = 0; i < 2; i++) {
+            List<SObject> result = firstReader.read(null);
+            Assert.areEqual('First', ((Account) result[0]).Name);
+        }
+
+        // read 3 — linked reader
+        List<SObject> read3 = firstReader.read(null);
+        Assert.areEqual('Linked', ((Account) read3[0]).Name);
     }
 
     /********************************************
