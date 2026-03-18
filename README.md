@@ -41,15 +41,16 @@ If you don't have npm installed you can simply copy the source code from here in
 
 ### A Basic Example
 
-Let's say you have the `AccountServices` class below. The business logic is simple - whenever an Account's owner changes `handleReassignment()` gets called with the accountId (set aside bulkification for now - this is an intentionally simplified example). It then reparents the Account's Cases and Contacts as well as setting the Account's IsPriorityRecord field based on the Account attributes and owner's Role.
+Let's say you have the `AccountServices` class below. The business logic is simple - whenever an Account's owner changes `handleReassignment()` gets called with the accountId (set aside bulkification for now - this is an intentionally simplified example). It then reparents the Account's Cases and Contacts as well as setting the Account's Rating field based on the Account and owner attributes.
 
 ```java
 public class AccountService {
-    public static method handleReassignment(Id accountId) {
+    public static void handleReassignment(Id accountId) {
+        // mock the READ by wrapping your SOQL statement - this has ZERO runtime effects outside unit tests
         Account acct = [
             SELECT
                 Id,
-                IsPriorityRecord,
+                Rating,
                 OwnerId,
                 Owner.UserRole.DeveloperName,
                 NumberOfEmployees,
@@ -63,26 +64,30 @@ public class AccountService {
         for (Contact c : acct.contacts) {
             c.OwnerId = acct.OwnerId;
         }
+        // mock the WRITE operations - again zero effect outside unit tests
         update acct.contacts;
 
         for (Case c : acct.cases) {
             c.OwnerId = acct.OwnerId;
         }
+        // ditto
         update acct.cases;
 
-        acc.IsPriorityRecord = isPriorityAccount(acct);
+        // read on...
+        setAccountRating(acct);
+
+        update acct;
     }
 
-    private static Boolean isPriorityAccount(Account acct) {
-        return acct.NumberOfEmployees > 1000 ||
-            acct.Owner.UserRole.DeveloperName == 'VP_Sales';
+    private static void setAccountRating(Account acct) {
+        // logic here...
     }
 }
 ```
 
 To setup a typical test for this code you would have to insert the following records into the db:
 
-1. At least 1 User including the **13** fields required on the object; more if you need to test for SLA\_\_c variants
+1. At least 1 User including the **13** fields required on the object; more if you need to test for different Rating scenarios
 2. 1 Account
 3. 1...n Contacts
 4. 1...n Cases
