@@ -183,12 +183,6 @@ public inherited sharing class ProxyTest extends Proxy.MockReader {
     }
 
     @isTest
-    private static void db_coverWrite() {
-        Proxy.mock();
-        coverProxyDbOperations();
-    }
-
-    @isTest
     /**
      * @description Validates that the inline-style read returns the passed-in records
      * when no mock is active (base Proxy passthrough behavior).
@@ -293,6 +287,77 @@ public inherited sharing class ProxyTest extends Proxy.MockReader {
             .get(0)
             .get(0));
         Assert.areEqual(theOG, a3.Name);
+    }
+
+    @isTest
+    private static void validate_contextDependent_mockRead_objectDependency() {
+        String simpleContext_0 = '12345';
+        Contact objectContext = new Contact(
+            FirstName = 'John',
+            LastName = 'Doe'
+        );
+        /** dependent 0 */
+        Proxy.mock()
+            .mockReader(ProxyTest.class, simpleContext_0)
+            .addReadRecord(new Account(Name = simpleContext_0));
+        /** dependent 1 */
+        Proxy.mock()
+            .mockReader(ProxyTest.class, objectContext)
+            .addReadRecord(new Account(Name = objectContext.FirstName));
+
+        // validate dependent 0
+        List<SObject> result0 = Proxy.db.query(
+            [SELECT Id FROM Account LIMIT 1],
+            ProxyTest.class,
+            simpleContext_0
+        );
+        Assert.areEqual(simpleContext_0, ((Account) result0[0]).Name);
+
+        // validate dependent 1
+        List<SObject> result1 = Proxy.db.query(
+            [SELECT Id FROM Account LIMIT 1],
+            ProxyTest.class,
+            objectContext
+        );
+        Assert.areEqual(objectContext.FirstName, ((Account) result1[0]).Name);
+    }
+
+    @isTest
+    private static void validate_contextDependent_mockRead_evaluateDependency() {
+        Integer modInt = 10;
+        Proxy.mock()
+            .mockReader(ProxyTest.class, new MockDependencyEval())
+            .addReadRecord(new Account())
+            .repeat(5);
+        while (modInt > 0) {
+            Integer resultSize = queryAccount(modInt).size();
+            if (Math.mod(modInt, 2) == 1) {
+                Assert.areEqual(5, resultSize);
+            } else {
+                Assert.areEqual(0, resultSize);
+            }
+
+            modInt = modInt - 1;
+        }
+    }
+
+    private static List<Account> queryAccount(Integer modInt) {
+        List<Account> result = (List<Account>) Proxy.db.query(
+            [SELECT Id FROM Account],
+            ProxyTest.class,
+            modInt
+        );
+
+        return result;
+    }
+
+    private class MockDependencyEval implements Proxy.MockReadContextEvaluator {
+        // evaluate such that reader is only valid when modulo of readContext is 1
+        public Boolean contextMatches(Object readContext) {
+            Integer modInt = (Integer) readContext;
+
+            return Math.mod(modInt, 2) == 1;
+        }
     }
 
     /********************************************
@@ -570,6 +635,12 @@ public inherited sharing class ProxyTest extends Proxy.MockReader {
     /****************************************************************************************
      * _COVER_ DB WRITE OVERLOADS (No need to validate database outcomes)
      *****************************************************************************************/
+
+    @isTest
+    private static void db_coverWrite() {
+        Proxy.mock();
+        coverProxyDbOperations();
+    }
 
     @isTest
     private static void coverProxyDbOperations() {
