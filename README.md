@@ -100,52 +100,14 @@ Here's how the test looks using Proxy, assuming you want to mock both the `read`
 
 ```java
 // update the functional code
-public class AccountService {
-    public static method handleReassignment(Id accountId){
-        // mock the READ by wrapping your SOQL statement - this has ZERO runtime effects outside unit tests
-        Account acct = Proxy.query(
-        [
-            SELECT
-                Id, IsPriorityRecord, OwnerId, Owner.UserRole.DeveloperName,
-                (SELECT Id, OwnerId FROM Contacts),
-                (SELECT Id, OwnerId FROM Cases)
-            WHERE Id = :accountId LIMIT 1
-        ], AccountService.class);
 
-        for (Contact c : acct.contacts){
-            c.OwnerId = acct.OwnerId;
-        }
-        // mock the WRITE operations - again zero effect outside unit tests
-        Proxy.updateRecords(acct.contacts);
-
-        for(Case c : acct.cases){
-            c.OwnerId = acct.OwnerId;
-        }
-        // ditto
-        Proxy.updateRecords(acct.cases);
-
-        // read on...
-        acc.IsPriorityRecord = isPriorityAccount(acct);
-    }
-
-    private static String isPriorityAccount(Account acct){
-        // ...logic
-    }
-}
 ```
 
 Thus far we've updated the functional code to make it mockable. Now let's provide the data we want this test to run with:
 
 ```java
 // create the test class
-@isTest
-public class AccountServiceTest{
 
-    private static void validateChildAssignments(){
-
-    }
-
-}
 ```
 
 ### Functional Code

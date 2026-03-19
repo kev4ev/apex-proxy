@@ -173,7 +173,7 @@ public virtual inherited sharing class Proxy {
 
     public virtual class Mock extends Proxy {
         private Map<Schema.SObjectType, Integer> recordIdCounter = new Map<Schema.SObjectType, Integer>();
-        private Map<String, MockReader> readMocks = new Map<String, MockReader>();
+        private Map<String, List<MockReader>> readMocks = new Map<String, List<MockReader>>();
         private Map<String, Object> trapMocks = new Map<String, Object>();
 
         /** @description stores the state of each key/value passed to reflect(); useful for introspection / assertions */
@@ -188,6 +188,161 @@ public virtual inherited sharing class Proxy {
                 );
             }
         }
+
+        /******************************************************************
+         * MOCK REFLECT API
+         ******************************************************************/
+
+        /** @description use to introspect a value passed to the reflect api with this key */
+        public String trap(String key) {
+            return trapMock(key, (Object) null);
+        }
+
+        /** @description use to introspect a value passed to the reflect api with this key and System.Type */
+        public String trap(String key, System.Type caller) {
+            return trapMock(key, caller, null);
+        }
+
+        /** @description use to **replace the return value** of a value passed to the reflect api with this key and System.Type */
+        public String trapMock(String key, System.Type caller, Object value) {
+            String trapKey = key + '_' + caller.getName();
+
+            return trapMock(trapKey, value);
+        }
+
+        /** @description use to **replace the return value** of a value passed to the reflect api with this key */
+        public String trapMock(String key, Object value) {
+            trapMocks.put(key, value);
+
+            return key;
+        }
+
+        /** @description Available for use by overriding classes */
+        protected void trapAudit(Object value, String key) {
+            // capture trapped object for introspection
+            if (this.trapAudit == null) {
+                this.trapAudit = new Map<String, Object>();
+            }
+            // store either the key or the last non-keyed object
+            this.trapAudit.put(key ?? '', value);
+        }
+
+        public virtual override Object trap(Object value, String key) {
+            trapAudit(value, key);
+            // return either of the mocked key's value or the actual value
+            return trapMocks.get(key) ?? value;
+        }
+
+        /******************************************************************
+         * MOCK READ API: allows extending class to override
+         ******************************************************************/
+
+        /**
+         * @description Generate a _CONDITIONAL_ MockReader instance for the Type to mock
+         * MockReader will only be invoked if the context passed during query() or read()
+         * is a match. Match truthiness will be determined based on the dependentContext type:
+         *   - if an instance of MockReadContextEvaluator, the evaulation of its contextMatches() method will be used
+         *   - if any other object an equality check will be used and match will be dependent on Apex's standard
+         *     equality evaluation of two objects
+         */
+        public MockReader mockReader(System.Type readerType) {
+            return mockReader(readerType, null);
+        }
+
+        public MockReader mockReader(
+            System.Type readerType,
+            Object dependentContext
+        ) {
+            // create the MockReader passing dependency context, which may be null (always matches)
+            MockReader mocker = new MockReader(dependentContext);
+            // normalize name and add to list of readers for the name
+            String fullyQualifiedName = readerType.getName();
+            String normalizedName = normalizeClassName(readerType);
+            if (readMocks.containsKey(normalizedName) == false) {
+                readMocks.put(normalizedName, new List<MockReader>());
+            }
+
+            readMocks.get(normalizedName).add(mocker);
+
+            return mocker;
+        }
+
+        /** @description db.read() mock INLINE-STYLE */
+        public virtual override List<SObject> query(
+            List<SObject> records,
+            System.Type caller,
+            Object readContext
+        ) {
+            String callerName = normalizeClassName(caller);
+
+            // SOQL has already been performed in this style; call with TRUE to disable once to avoid limits duplication
+            return mockRead(callerName, readContext, records, true);
+        }
+
+        /** @description db.read() mock IMPLEMENTATION-STYLE */
+        public virtual override List<SObject> read(
+            DbReader reader,
+            Object readContext
+        ) {
+            String readerName = normalizeClassName(reader);
+
+            return mockRead(readerName, readContext, reader, false);
+        }
+
+        protected List<SObject> mockRead(
+            String normalizeClassName,
+            Object readContext,
+            Object fallback,
+            Boolean disableLimitsOnce
+        ) {
+            MockReader mocker = getContextSensitiveReader(
+                normalizeClassName,
+                readContext
+            );
+            // return either the previously-suplied MockReader or the fallback return val
+            List<SObject> readRecords = mocker?.read(readContext);
+            // if null use fallback content
+            if (readRecords == null) {
+                readRecords = (fallback instanceof Proxy.DbReader)
+                    ? ((Proxy.DbReader) fallback).read(readContext)
+                    : (List<SObject>) fallback;
+            }
+
+            readAudit(normalizeClassName, readRecords);
+
+            return readRecords;
+        }
+
+        /** @description Returns the first matching MockReader whose validForContext() evaluates to true */
+        protected MockReader getContextSensitiveReader(
+            String normalizeClassName,
+            Object readContext
+        ) {
+            List<MockReader> candidates = readMocks.get(normalizeClassName);
+            if (candidates != null) {
+                for (MockReader candidate : candidates) {
+                    if (candidate.validForContext(readContext) == true) {
+                        return candidate;
+                    }
+                }
+            }
+
+            return null;
+        }
+
+        protected void readAudit(String readerName, List<SObject> readRecords) {
+            if (this.readAudit == null) {
+                this.readAudit = new Map<String, List<List<SObject>>>();
+            }
+            if (this.readAudit.get(readerName) == null) {
+                this.readAudit.put(readerName, new List<List<SObject>>());
+            }
+            this.readAudit.get(readerName).add(readRecords);
+        }
+
+        /******************************************************************
+         * MOCK MUTATION API: mocking handled OOB by mutation api methods
+         ******************************************************************/
 
         /************************************************************
          * "STATIC" MOCK HELPER APIs (accessible via Proxy.mock getter)
@@ -259,110 +414,10 @@ public virtual inherited sharing class Proxy {
 
             return reader.readRecords[0];
         }
+    }
 
-        /******************************************************************
-         * MOCK REFLECT API: allows extending class to override
-         ******************************************************************/
-
-        public virtual override Object trap(Object value, String key) {
-            trapAudit(value, key);
-            // return either of the mocked key's value or the actual value
-            return trapMocks.get(key) ?? value;
-        }
-
-        /** @description use to introspect a value passed to the reflect api with this key */
-        public String trap(String key) {
-            return trapMock(key, (Object) null);
-        }
-
-        /** @description use to introspect a value passed to the reflect api with this key and System.Type */
-        public String trap(String key, System.Type caller) {
-            return trapMock(key, caller, null);
-        }
-
-        /** @description use to **replace the return value** of a value passed to the reflect api with this key and System.Type */
-        public String trapMock(String key, System.Type caller, Object value) {
-            String trapKey = key + '_' + caller.getName();
-
-            return trapMock(trapKey, value);
-        }
-
-        /** @description use to **replace the return value** of a value passed to the reflect api with this key */
-        public String trapMock(String key, Object value) {
-            trapMocks.put(key, value);
-
-            return key;
-        }
-
-        /** @description Available for use by overriding classes */
-        protected void trapAudit(Object value, String key) {
-            // capture trapped object for introspection
-            if (this.trapAudit == null) {
-                this.trapAudit = new Map<String, Object>();
-            }
-            // store either the key or the last non-keyed object
-            this.trapAudit.put(key ?? '', value);
-        }
-
-        /******************************************************************
-         * MOCK READ API: allows extending class to override
-         ******************************************************************/
-
-        /** @description Generate a MockReader instance for the Type to mock */
-        public MockReader mockReader(System.Type readerType) {
-            MockReader mocker = new MockReader();
-            String fullyQualifiedName = readerType.getName();
-            String normalizedName = normalizeClassName(readerType);
-            readMocks.put(normalizedName, mocker);
-
-            return mocker;
-        }
-
-        /** @description db.read() mock INLINE-STYLE */
-        public virtual override List<SObject> query(
-            List<SObject> records,
-            System.Type caller,
-            Object readContext
-        ) {
-            String callerName = normalizeClassName(caller);
-            // return either the previously-suplied mock reader or the passed one
-            MockReader mocker = readMocks.get(callerName);
-            // do not perform dummy query as db hit has already occurred
-            mocker?.disableLimitsOnce();
-            List<SObject> readRecords = mocker?.read(readContext) ?? records;
-            readAudit(callerName, readRecords);
-
-            return readRecords;
-        }
-
-        /** @description db.read() mock IMPLEMENTATION-STYLE */
-        public virtual override List<SObject> read(
-            DbReader reader,
-            Object readContext
-        ) {
-            String readerName = normalizeClassName(reader);
-            // return either the previously-suplied mock reader or the passed one
-            MockReader mocker = readMocks.get(readerName);
-            List<SObject> readRecords = mocker?.read(readContext) ??
-                reader.read(readContext);
-            readAudit(readerName, readRecords);
-
-            return readRecords;
-        }
-
-        protected void readAudit(String readerName, List<SObject> readRecords) {
-            if (this.readAudit == null) {
-                this.readAudit = new Map<String, List<List<SObject>>>();
-            }
-            if (this.readAudit.get(readerName) == null) {
-                this.readAudit.put(readerName, new List<List<SObject>>());
-            }
-            this.readAudit.get(readerName).add(readRecords);
-        }
-
-        /******************************************************************
-         * MOCK MUTATION API: mocking handled OOB by mutation api methods
-         ******************************************************************/
+    public interface MockReadContextEvaluator {
+        Boolean contextMatches(Object readContext);
     }
 
     /**
@@ -373,8 +428,9 @@ public virtual inherited sharing class Proxy {
         /**************************************************
          * INITIAL STATE
          **************************************************/
-        public List<List<SObject>> readAudit { get; private set; }
         private Object readContext;
+        private Object readContextDependency;
+        public List<List<SObject>> readAudit { get; private set; }
         private MockReadOptions readOptions {
             get {
                 if (readOptions == null) {
@@ -399,6 +455,35 @@ public virtual inherited sharing class Proxy {
         private MockReader linked;
 
         /**************************************************
+         * CONSTRUCTORS
+         **************************************************/
+        public MockReader() {
+            this(null);
+        }
+
+        public MockReader(Object readContextDependency) {
+            this.readContextDependency = readContextDependency;
+        }
+
+        /**************************************************
+         * CONTEXT DEPENDENCY MATCHING
+         **************************************************/
+
+        public Boolean validForContext(Object readContext) {
+            // if there is no dependency on context then return true (always valid)
+            if (this.readContextDependency == null) {
+                return true;
+            }
+            // else evaluate based on the type of dependency MockReader was initialized with
+            if (readContextDependency instanceof MockReadContextEvaluator) {
+                return ((MockReadContextEvaluator) readContextDependency)
+                    .contextMatches(readContext);
+            }
+
+            return readContext == readContextDependency;
+        }
+
+        /**************************************************
          * SET OPTIONS
          **************************************************/
         public MockReadOptions setOptions() {
@@ -416,8 +501,9 @@ public virtual inherited sharing class Proxy {
          **************************************************/
 
         /**
-         * @description !!Important!! readContext is discarded in default implementation.
-         * override if you need to utilize it
+         * @description readContext is ignored here. If MockReader has a
+         * context dependency initialize the class with it (INLINE style), otherwise
+         * override this method in a MockReader subclass (IMPLEMENTATION style);
          */
         public virtual List<SObject> read(Object readContext) {
             this.readContext = readContext;
