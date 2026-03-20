@@ -230,7 +230,9 @@ public virtual inherited sharing class Proxy {
         public virtual override Object trap(Object value, String key) {
             trapAudit(value, key);
             // return either of the mocked key's value or the actual value
-            return trapMocks.get(key) ?? value;
+            Object mockedVal = trapMocks.get(key);
+
+            return mockedVal ?? value;
         }
 
         /******************************************************************
