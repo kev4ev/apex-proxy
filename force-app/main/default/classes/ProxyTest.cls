@@ -34,49 +34,6 @@ public inherited sharing class ProxyTest extends Proxy.MockReader {
     }
 
     /****************************************************************************************
-     * VALIDATE MOCK API
-     *****************************************************************************************/
-
-    @isTest
-    /**
-     * @description Validates Mock.relateParent(child, parent, relationField):
-     *   (1) the foreign key field (e.g. AccountId) is populated on the returned child
-     *   (2) the parent relationship object (e.g. Account) is traversable on the returned child
-     */
-    private static void mock_relateParent_childParentField_setsRelationshipOnChild() {
-        Proxy.mock();
-        Account parent = new Account(Name = 'Parent Acct');
-        Contact child = new Contact(FirstName = 'Child');
-
-        Contact result = (Contact) Proxy.mock.relateParent(
-            child,
-            parent,
-            Schema.Contact.AccountId
-        );
-
-        Assert.isNotNull(result.AccountId);
-        Assert.areEqual('Parent Acct', result.Account.Name);
-    }
-
-    @isTest
-    /**
-     * @description Validates Mock.relateParent(parent, child):
-     *   (1) the child sub-list relationship is populated on the returned parent
-     *   (2) the child record's fields are intact
-     */
-    private static void mock_relateParent_parentChild_setsChildRelationshipOnParent() {
-        Proxy.mock();
-        Account parent = new Account(Name = 'Root');
-        Contact child = new Contact(FirstName = 'Child', LastName = 'Test');
-
-        Account result = (Account) Proxy.mock.relateParent(parent, child);
-
-        Assert.areEqual(1, result.Contacts.size());
-        Assert.areEqual('Child', result.Contacts[0].FirstName);
-        Assert.areEqual('Test', result.Contacts[0].LastName);
-    }
-
-    /****************************************************************************************
      * VALIDATE REFLECT API
      *****************************************************************************************/
 
@@ -119,6 +76,103 @@ public inherited sharing class ProxyTest extends Proxy.MockReader {
         Integer result = (Integer) Proxy.reflect(value, key, ProxyTest.class);
         Assert.areEqual(value, result);
         Assert.areEqual(value, (Integer) Proxy.mock.trapAudit.get(composedKey));
+    }
+
+    /****************************************************************************************
+     * VALIDATE DEBUG API
+     *****************************************************************************************/
+
+    @isTest
+    private static void whenNoTestDelegate_expectOrgDelegateOrNull() {
+        Boolean isOrgDelegate =
+            Type.forName('', Proxy.debugDelegateClassName) != null;
+        Assert.areEqual(isOrgDelegate, Proxy.debugDelegate != null);
+        // also assert namespace
+        String qualName = ProxyTest.class.getName();
+        String ns = qualName.contains('.') ? qualName.split('\\.')[0] : 'c';
+        Assert.areEqual(ns, Proxy.ns);
+    }
+
+    @isTest
+    private static void whenDelegate_expectDelegatedDebug() {
+        TestDebugDelegate testDelegate = new TestDebugDelegate();
+        Proxy.debugDelegate = testDelegate;
+        Map<System.LoggingLevel, String> logMessages = new Map<System.LoggingLevel, String>{
+            System.LoggingLevel.NONE => 'NONE-level message',
+            System.LoggingLevel.ERROR => 'ERROR-level message',
+            System.LoggingLevel.WARN => 'WARN-level message',
+            System.LoggingLevel.INFO => 'INFO-level message',
+            System.LoggingLevel.DEBUG => 'DEBUG-level message',
+            System.LoggingLevel.FINE => 'FINE-level message',
+            System.LoggingLevel.FINER => 'FINER-level message',
+            System.LoggingLevel.FINEST => 'FINEST-level message'
+        };
+        for (System.LoggingLevel level : logMessages.keySet()) {
+            String msg = logMessages.get(level);
+            Proxy.debug(level, msg);
+            Assert.areEqual(level, testDelegate.level);
+            Assert.isTrue(testDelegate.msg.contains(msg));
+            Assert.isTrue(testDelegate.msg.endsWith('--delegated'));
+        }
+    }
+
+    private class TestDebugDelegate implements Callable {
+        private Boolean called = false;
+        private System.LoggingLevel level;
+        private String msg;
+
+        public Object call(String action, Map<String, Object> args) {
+            if (action.equalsIgnoreCase('debug')) {
+                msg = (String) args.get('msg') + '--delegated';
+                level = (System.LoggingLevel) args.get('loggingLevel');
+                System.debug(level, msg);
+            }
+
+            return null;
+        }
+    }
+
+    /****************************************************************************************
+     * VALIDATE MOCK API: Utils
+     *****************************************************************************************/
+
+    @isTest
+    /**
+     * @description Validates Mock.relateParent(child, parent, relationField):
+     *   (1) the foreign key field (e.g. AccountId) is populated on the returned child
+     *   (2) the parent relationship object (e.g. Account) is traversable on the returned child
+     */
+    private static void mock_relateParent_childParentField_setsRelationshipOnChild() {
+        Proxy.mock();
+        Account parent = new Account(Name = 'Parent Acct');
+        Contact child = new Contact(FirstName = 'Child');
+
+        Contact result = (Contact) Proxy.mock.relateParent(
+            child,
+            parent,
+            Schema.Contact.AccountId
+        );
+
+        Assert.isNotNull(result.AccountId);
+        Assert.areEqual('Parent Acct', result.Account.Name);
+    }
+
+    @isTest
+    /**
+     * @description Validates Mock.relateParent(parent, child):
+     *   (1) the child sub-list relationship is populated on the returned parent
+     *   (2) the child record's fields are intact
+     */
+    private static void mock_relateParent_parentChild_setsChildRelationshipOnParent() {
+        Proxy.mock();
+        Account parent = new Account(Name = 'Root');
+        Contact child = new Contact(FirstName = 'Child', LastName = 'Test');
+
+        Account result = (Account) Proxy.mock.relateParent(parent, child);
+
+        Assert.areEqual(1, result.Contacts.size());
+        Assert.areEqual('Child', result.Contacts[0].FirstName);
+        Assert.areEqual('Test', result.Contacts[0].LastName);
     }
 
     /********************************************

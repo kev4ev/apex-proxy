@@ -80,6 +80,77 @@ public virtual inherited sharing class Proxy {
     }
 
     /****************************************************************************************
+     * DEBUG API
+     * Write to the debug logs. Particularly useful within managed packages to passthrough
+     * messages for debug logs.
+     ****************************************************************************************/
+
+    @TestVisible
+    private static String debugDelegateClassName = 'DebugDelegate';
+    @TestVisible
+    private static Callable debugDelegate {
+        get {
+            if (!debugDelegateChecked && debugDelegate == null) {
+                try {
+                    debugDelegate = (Callable) Type.forName(
+                            '' /** default ns */,
+                            debugDelegateClassName
+                        )
+                        ?.newInstance();
+                } catch (Exception e) {
+                }
+
+                debugDelegateChecked = true;
+            }
+
+            return debugDelegate;
+        }
+        set;
+    }
+    private static Boolean debugDelegateChecked = false;
+    public static String ns {
+        get {
+            if (String.isBlank(ns)) {
+                String qualName = Proxy.class.getName();
+                ns = qualName.contains('.') ? qualName.split('\\.')[0] : 'c';
+            }
+
+            return ns;
+        }
+        private set;
+    }
+
+    public static void debug(String msg) {
+        debug(System.LoggingLevel.DEBUG, msg);
+    }
+
+    public static void debug(System.LoggingLevel loggingLevel, String msg) {
+        singleton.debugInternal(loggingLevel, msg);
+    }
+
+    protected virtual void debugInternal(
+        System.LoggingLevel loggingLevel,
+        String msg
+    ) {
+        // if callback pass the args to it
+        if (debugDelegate != null) {
+            Map<String, Object> args = new Map<String, Object>{
+                'msg' => String.format(
+                    '[namespace:{0}]: {1}',
+                    new List<String>{ ns, msg }
+                ),
+                'loggingLevel' => loggingLevel
+            };
+            try {
+                debugDelegate.call('debug', args);
+            } catch (Exception e) {
+            }
+        } else {
+            System.debug(loggingLevel, msg);
+        }
+    }
+
+    /****************************************************************************************
      * DATABASE API
      * Read and mutation APIs for database operations.
      ****************************************************************************************/
